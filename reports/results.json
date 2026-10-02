@@ -1,0 +1,239 @@
+{
+  "datos": {
+    "meses": 128,
+    "desde": "2016-01",
+    "hasta": "2026-08",
+    "filas": 2453,
+    "entidades": 24
+  },
+  "regimenes_mora_media": {
+    "Pre-COVID": {
+      "total": 1.935,
+      "clientes": 1.95,
+      "comercial": 1.672,
+      "personas": 2.33,
+      "consumo": 1.993,
+      "vivienda": 2.476
+    },
+    "Alivio COVID": {
+      "total": 1.648,
+      "clientes": 1.656,
+      "comercial": 1.728,
+      "personas": 1.562,
+      "consumo": 1.458,
+      "vivienda": 1.596
+    },
+    "Normalización": {
+      "total": 2.142,
+      "clientes": 2.144,
+      "comercial": 2.302,
+      "personas": 1.993,
+      "consumo": 2.178,
+      "vivienda": 1.94
+    }
+  },
+  "extremos": {
+    "total": {
+      "minimo": 1.2594,
+      "mes_minimo": "2021-12",
+      "maximo": 2.5493,
+      "mes_maximo": "2026-01"
+    },
+    "clientes": {
+      "minimo": 1.268,
+      "mes_minimo": "2021-12",
+      "maximo": 2.5532,
+      "mes_maximo": "2026-01"
+    },
+    "comercial": {
+      "minimo": 1.4222,
+      "mes_minimo": "2021-12",
+      "maximo": 2.7536,
+      "mes_maximo": "2024-09"
+    },
+    "personas": {
+      "minimo": 1.0602,
+      "mes_minimo": "2021-12",
+      "maximo": 2.604,
+      "mes_maximo": "2026-01"
+    },
+    "consumo": {
+      "minimo": 0.9821,
+      "mes_minimo": "2021-10",
+      "maximo": 2.7588,
+      "mes_maximo": "2024-02"
+    },
+    "vivienda": {
+      "minimo": 1.0395,
+      "mes_minimo": "2022-03",
+      "maximo": 2.7948,
+      "mes_maximo": "2016-02"
+    }
+  },
+  "covid": {
+    "mora_feb_2020": 2.0398,
+    "minimo_post_covid": 1.2594,
+    "mes_minimo": "2021-12",
+    "ultimo": 2.4424,
+    "ultimo_mes": "2026-08",
+    "caida_pp": -0.7804,
+    "rebote_pp": 1.183,
+    "ultimo_vs_pre_covid_pp": 0.4026
+  },
+  "descomposicion_desde_minimo": {
+    "inicio": "2021-12-01",
+    "fin": "2026-08-01",
+    "mora_inicio": 1.2368,
+    "mora_fin": 2.4895,
+    "variacion_pp": 1.2527,
+    "dentro_bancos_pp": 1.2693,
+    "mezcla_pp": -0.0165,
+    "residuo": 0.0,
+    "bancos_comunes": 11,
+    "cobertura_colocaciones_inicio": 0.9587,
+    "cobertura_colocaciones_fin": 0.997
+  },
+  "descomposicion_desde_pre_covid": {
+    "inicio": "2019-12-01",
+    "fin": "2026-08-01",
+    "mora_inicio": 2.103,
+    "mora_fin": 2.4895,
+    "variacion_pp": 0.3865,
+    "dentro_bancos_pp": 0.4109,
+    "mezcla_pp": -0.0244,
+    "residuo": 0.0,
+    "bancos_comunes": 11,
+    "cobertura_colocaciones_inicio": 0.965,
+    "cobertura_colocaciones_fin": 0.997
+  },
+  "mayor_aporte": {
+    "Banco Santander-Chile": 0.3554,
+    "Banco del Estado de Chile": 0.3272,
+    "Scotiabank Chile": 0.1749
+  },
+  "dispersion_consumo": {
+    "mes_max_iqr": "2024-07",
+    "iqr_max": 2.1448,
+    "iqr_ultimo": 0.4241
+  },
+  "persistencia_rangos_consumo": 0.6923,
+  "backtest": {
+    "origenes_h1": 68,
+    "rmae": {
+      "1": {
+        "naive": 1.0,
+        "drift": 1.042,
+        "seasonal_naive": 8.392,
+        "ets_damped": 0.975,
+        "arima_111": 0.938
+      },
+      "3": {
+        "naive": 1.0,
+        "drift": 1.051,
+        "seasonal_naive": 3.499,
+        "ets_damped": 0.848,
+        "arima_111": 0.831
+      },
+      "6": {
+        "naive": 1.0,
+        "drift": 1.118,
+        "seasonal_naive": 1.803,
+        "ets_damped": 0.873,
+        "arima_111": 0.881
+      },
+      "12": {
+        "naive": 1.0,
+        "drift": 1.388,
+        "seasonal_naive": 1.0,
+        "ets_damped": 0.914,
+        "arima_111": 0.944
+      }
+    },
+    "ic95": [
+      {
+        "model": "arima_111",
+        "h": 1,
+        "rmae": 0.9381,
+        "lo": 0.8667,
+        "hi": 1.0206
+      },
+      {
+        "model": "arima_111",
+        "h": 3,
+        "rmae": 0.8305,
+        "lo": 0.7283,
+        "hi": 0.9459
+      },
+      {
+        "model": "arima_111",
+        "h": 6,
+        "rmae": 0.881,
+        "lo": 0.753,
+        "hi": 1.0325
+      },
+      {
+        "model": "arima_111",
+        "h": 12,
+        "rmae": 0.9438,
+        "lo": 0.8311,
+        "hi": 1.1439
+      },
+      {
+        "model": "ets_damped",
+        "h": 1,
+        "rmae": 0.9751,
+        "lo": 0.8847,
+        "hi": 1.0811
+      },
+      {
+        "model": "ets_damped",
+        "h": 3,
+        "rmae": 0.8479,
+        "lo": 0.7122,
+        "hi": 1.0006
+      },
+      {
+        "model": "ets_damped",
+        "h": 6,
+        "rmae": 0.873,
+        "lo": 0.7032,
+        "hi": 1.0602
+      },
+      {
+        "model": "ets_damped",
+        "h": 12,
+        "rmae": 0.9136,
+        "lo": 0.7716,
+        "hi": 1.147
+      },
+      {
+        "model": "drift",
+        "h": 1,
+        "rmae": 1.0422,
+        "lo": 0.8968,
+        "hi": 1.2205
+      },
+      {
+        "model": "drift",
+        "h": 3,
+        "rmae": 1.051,
+        "lo": 0.7858,
+        "hi": 1.3723
+      },
+      {
+        "model": "drift",
+        "h": 6,
+        "rmae": 1.1176,
+        "lo": 0.7239,
+        "hi": 1.6395
+      },
+      {
+        "model": "drift",
+        "h": 12,
+        "rmae": 1.388,
+        "lo": 0.8853,
+        "hi": 2.6277
+      }
+    ]
+  }
+}

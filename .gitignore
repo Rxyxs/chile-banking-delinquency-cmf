@@ -1,0 +1,12 @@
+# Datos descargados / Downloaded data
+data/raw/
+data/processed/
+
+# Entornos y cache / Envs and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
