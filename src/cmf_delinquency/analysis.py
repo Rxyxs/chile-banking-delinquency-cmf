@@ -186,3 +186,20 @@ def covid_swing(panel: pd.DataFrame) -> dict:
         "rebote_pp": float(last - trough),
         "ultimo_vs_pre_covid_pp": float(last - pre),
     }
+
+
+def lead_lag(mora: pd.Series, macro: pd.Series, max_lag: int = 12, window: int = 12) -> pd.DataFrame:
+    """Correlacion entre el cambio a ``window`` meses de la mora y el de un indicador, con el
+    indicador adelantado ``k`` meses (``k`` = cuantos meses antes se movio el indicador).
+
+    Se usan cambios y no niveles para no medir solo que ambas series tienen tendencia. Los cambios
+    a 12 meses se solapan, asi que las correlaciones vecinas no son independientes entre si y no
+    corresponde leerlas con un p-valor ingenuo: es una descripcion, no una prueba.
+    """
+    d_mora = mora.diff(window)
+    d_macro = macro.diff(window)
+    rows = []
+    for k in range(0, max_lag + 1):
+        pair = pd.concat([d_mora, d_macro.shift(k)], axis=1, keys=["mora", "macro"]).dropna()
+        rows.append({"lag": k, "corr": float(pair["mora"].corr(pair["macro"])) if len(pair) > 12 else float("nan"), "n": int(len(pair))})
+    return pd.DataFrame(rows)

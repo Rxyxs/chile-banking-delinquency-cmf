@@ -10,11 +10,12 @@
 
 ## Why this project
 
-Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer three questions an analyst actually gets asked:
+Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer four questions an analyst actually gets asked:
 
 1. How big was the COVID-era drop in arrears, and how much of it has come back?
 2. Is the recent rise a *system-wide* deterioration, or is it a few banks, or a shift in who lends?
 3. Can a simple model forecast next quarter's delinquency better than "same as today"?
+4. Do macro indicators (unemployment, the policy rate, IMACEC) improve those forecasts?
 
 Everything runs from one command and every number below comes from that run.
 
@@ -30,6 +31,8 @@ Source: [CMF Chile — *Indicador de morosidad de 90 días o más individual del
 | Measure | % of loans 90+ days past due, for total, commercial, personas, consumo and vivienda; plus the arrears amount in MM$ |
 
 The small tidy panel is committed at [`data/panel_mora90.csv`](data/panel_mora90.csv) so tests and `--offline` runs need no network. Raw `.xlsx` files are downloaded on demand and not versioned.
+
+**Macro indicators (finding 5).** Monthly unemployment, policy rate (TPM) and IMACEC from [mindicador.cl](https://mindicador.cl), an open API that mirrors Banco Central and INE series. It is a third-party aggregator, not the official publisher, so figures can differ from the official ones or be revised later; I use the values as they stood when I downloaded them (2026-10-03), not real-time vintages. The small table is committed at [`data/macro_indicators.csv`](data/macro_indicators.csv). CPI is left out because the API only returns it up to 2025-12.
 
 ### Things the files do that a naive reader would get wrong
 
@@ -96,6 +99,39 @@ Rolling-origin backtest of the system total (first forecast after 60 months of h
 
 ![Backtest](reports/figures/04_backtest_rmae.png)
 
+### 5. Macro indicators do not improve the forecast
+
+I tested three monthly indicators: unemployment, the policy rate and IMACEC (annual change). Unemployment and IMACEC are lagged one month for publication, so a forecast only uses what was known at its origin.
+
+**They do move before arrears, with signs that need care.** Correlation between the 12-month change in arrears and the 12-month change in each indicator, with the indicator leading by *k* months (116 overlapping observations):
+
+| Indicator | Same month | Leading by 6 months | Leading by 12 months |
+|---|---|---|---|
+| Policy rate (TPM) | −0.14 | +0.39 | **+0.67** |
+| Unemployment | +0.16 | −0.27 | **−0.51** |
+| IMACEC (annual change) | −0.40 | −0.34 | −0.11 |
+
+![Lead-lag correlations](reports/figures/06_macro_rezagos.png)
+
+- The policy rate, a year earlier, correlates strongly with the rise in arrears: consistent with rate rises passing through to borrowers, which I did not test as a causal claim.
+- Unemployment has the *wrong* sign at long leads. Unemployment rose sharply in 2020 while arrears fell, because of the relief measures, and that episode dominates a sample this short.
+- These are changes over overlapping 12-month windows, so neighbouring correlations are not independent and I give no p-values. It is a description, not a test.
+
+**But adding them makes the forecasts worse.** Direct forecasts at each horizon (least squares of the future change on today's features), with the same expanding-origin protocol as finding 4 (68 origins at one month). The reference is the same model without macro, so the table isolates what the indicators add. Below 1 means better.
+
+| Horizon | Momentum only, vs naive | + unemployment, vs momentum only | + unemployment, TPM and IMACEC, vs momentum only |
+|---|---|---|---|
+| 1 month | 0.95 [0.87, 1.06] | 1.11 [1.01, 1.21] | 1.14 [1.03, 1.27] |
+| 3 months | **0.82 [0.70, 0.97]** | 1.24 [1.04, 1.47] | 1.30 [0.99, 1.70] |
+| 6 months | 0.98 [0.80, 1.13] | 1.22 [0.97, 1.47] | 1.21 [0.73, 1.95] |
+| 12 months | 1.13 [1.02, 1.28] | 1.12 [0.89, 1.24] | 1.10 [0.61, 1.91] |
+
+![Value of adding macro indicators](reports/figures/07_macro_aporte.png)
+
+- Adding macro raises the error by 10 to 30% relative to momentum alone. At 1 and 3 months for unemployment, and at 1 month for all three, the interval excludes 1: it is worse, not just no better. Elsewhere the intervals include 1.
+- Momentum alone (the change over the last three months) beats the naive forecast only at 3 months (0.82, about the same as the ARIMA of finding 4) and is *worse* than naive at 12 months.
+- **I did not test why macro hurts.** A plausible cause is that in the training windows the COVID relief reversed the usual link between unemployment and arrears, so the coefficients learned there mislead afterwards; the unemployment row of the correlation table is the symptom. With 60 to 120 months, three extra regressors can also simply overfit.
+
 ## Limitations
 
 - **Arrears are not losses.** 90+ day delinquency says nothing about recoveries, provisions or write-offs.
@@ -103,6 +139,7 @@ Rolling-origin backtest of the system total (first forecast after 60 months of h
 - **Loan balances are implied, not published.** The CMF gives arrears in % and in MM$, not the loan stock, so I back it out as `MM$ / (% / 100)`. It is only defined where arrears are positive, so banks at 0% drop out of the weights. This is why the reconstructed system figure in the decomposition (2.49%) sits slightly above the official one (2.44%).
 - **Small backtest.** 56–68 overlapping origins on one regime-shifting series. The intervals are wide and the evaluation window starts in 2021, so it mostly measures the post-COVID rebound.
 - **Entity histories are not fully comparable.** Names change in the source (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), the BBVA/Scotiabank Azul series ends in 2018-08 and Banco Security is no longer reported after 2025-10. I handle the renames I could identify in the files; I did not research the corporate transactions behind them.
+- **Macro data are not real-time vintages.** They come from a third-party aggregator and are the values available on the download date; later revisions would not be visible. The one-month publication lag I apply to unemployment and IMACEC is an assumption I did not check against the official calendars, and I only tried linear models.
 
 ## Run it
 
@@ -112,8 +149,8 @@ pip install -r requirements.txt
 export PYTHONPATH=src                                # Windows PowerShell: $env:PYTHONPATH="src"
 
 python -m cmf_delinquency.pipeline --offline         # uses the committed panel, ~30 s
-python -m cmf_delinquency.pipeline                   # downloads the 128 files first
-pytest                                               # 49 tests, no network
+python -m cmf_delinquency.pipeline                   # downloads the 128 files and the macro series first
+pytest                                               # 64 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -125,10 +162,11 @@ src/cmf_delinquency/
   download.py   scrape the index page, fetch the monthly .xlsx (idempotent)
   parse.py      three layouts -> one tidy panel, name aliases, mergers
   analysis.py   regimes, within/mix decomposition, dispersion, rank persistence
+  macro.py      open macro indicators (mindicador.cl) and publication lags
   forecast.py   rolling-origin backtest, block-bootstrap intervals
   plots.py      figures
   pipeline.py   end to end
-tests/          49 tests: synthetic files in both layouts + integrity checks on the real panel
+tests/          64 tests: synthetic files in both layouts + integrity checks on the real panel + macro and no-look-ahead checks
 ```
 
 ## License

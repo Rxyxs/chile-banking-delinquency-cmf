@@ -104,16 +104,16 @@ def best_model_per_horizon(rel: pd.DataFrame) -> pd.Series:
 
 
 def rmae_ci(
-    errors: pd.DataFrame, model: str, h: int, n_boot: int = 4000, seed: int = 0
+    errors: pd.DataFrame, model: str, h: int, n_boot: int = 4000, seed: int = 0, baseline: str = "naive"
 ) -> tuple[float, float, float]:
-    """rMAE de model vs ingenuo con IC 95% por bootstrap de bloques.
+    """rMAE de model vs un baseline (por defecto el ingenuo) con IC 95% por bootstrap de bloques.
 
     Los errores de orígenes consecutivos se solapan (comparten el mismo tramo de
     historia), así que se remuestrean bloques de largo max(h, 3) y no puntos sueltos.
     """
     sub = errors[errors["h"] == h].sort_values("origin")
     e_m = sub[sub["model"] == model]["abs_err"].to_numpy()
-    e_n = sub[sub["model"] == "naive"]["abs_err"].to_numpy()
+    e_n = sub[sub["model"] == baseline]["abs_err"].to_numpy()
     n = len(e_m)
     if n < 10 or n != len(e_n):
         return float("nan"), float("nan"), float("nan")
@@ -129,3 +129,79 @@ def rmae_ci(
     point = float(e_m.mean() / e_n.mean())
     lo, hi = np.percentile(ratios, [2.5, 97.5])
     return point, float(lo), float(hi)
+
+
+# --------------------------------------------------------------------------- con indicadores macro
+DIRECT_MODELS = {
+    "momentum": ["momentum_3m"],
+    "momentum+unemployment": ["momentum_3m", "d6_unemployment"],
+    "momentum+macro": ["momentum_3m", "d6_unemployment", "d6_tpm", "imacec_yoy"],
+}
+MIN_DIRECT_ROWS = 24
+
+
+def macro_features(y: pd.Series, macro: pd.DataFrame) -> pd.DataFrame:
+    """Features conocidas en cada mes ``t``. ``macro`` ya viene con el rezago de publicacion aplicado."""
+    m = macro.reindex(y.index)
+    feats = pd.DataFrame(index=y.index)
+    feats["momentum_3m"] = y - y.shift(3)
+    feats["d6_unemployment"] = m["unemployment_pct"] - m["unemployment_pct"].shift(6)
+    feats["d6_tpm"] = m["tpm_pct"] - m["tpm_pct"].shift(6)
+    feats["imacec_yoy"] = m["imacec_yoy_pct"]
+    return feats
+
+
+def _ols_predict(x_train: np.ndarray, y_train: np.ndarray, x_new: np.ndarray) -> float:
+    design = np.column_stack([np.ones(len(x_train)), x_train])
+    beta, *_ = np.linalg.lstsq(design, y_train, rcond=None)
+    return float(beta[0] + x_new @ beta[1:])
+
+
+def direct_rolling_origin(
+    series: pd.Series, macro: pd.DataFrame, horizons=HORIZONS, min_train: int = MIN_TRAIN
+) -> pd.DataFrame:
+    """Pronostico directo a ``h`` meses: regresion OLS del cambio futuro sobre las features de hoy.
+
+    En cada origen solo se entrena con pares (features en s, cambio entre s y s+h) cuyo desenlace ya
+    se conocia en el origen, es decir ``s + h <= origen``. Misma grilla de origenes que
+    ``rolling_origin`` para poder compararlos.
+    """
+    series = series.dropna().sort_index()
+    feats = macro_features(series, macro)
+    y = series.to_numpy()
+    n = len(series)
+    rows = []
+    for origin in range(min_train, n):
+        o = origin - 1  # posicion del ultimo dato conocido
+        for h in horizons:
+            target_pos = o + h
+            if target_pos >= n:
+                continue
+            for name, cols in DIRECT_MODELS.items():
+                x_all = feats[cols].to_numpy()
+                idx = np.arange(0, o - h + 1)
+                idx = idx[~np.isnan(x_all[idx]).any(axis=1)]
+                if len(idx) < MIN_DIRECT_ROWS or np.isnan(x_all[o]).any():
+                    continue
+                delta = _ols_predict(x_all[idx], y[idx + h] - y[idx], x_all[o])
+                pred = float(y[o] + delta)
+                rows.append(
+                    {
+                        "origin": series.index[o], "target": series.index[target_pos], "h": h, "model": name,
+                        "pred": pred, "actual": float(y[target_pos]), "abs_err": abs(pred - float(y[target_pos])),
+                        "regime": regime_of(series.index[target_pos]),
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def align_with_naive(direct: pd.DataFrame, baseline_errors: pd.DataFrame) -> pd.DataFrame:
+    """Une los errores directos con los del ingenuo en los mismos (origen, horizonte)."""
+    naive = baseline_errors[baseline_errors["model"] == "naive"]
+    keys = direct[["origin", "h"]].drop_duplicates()
+    # solo los (origen, h) donde TODOS los modelos directos existen: la comparacion debe ser sobre lo mismo
+    full = direct.groupby(["origin", "h"])["model"].nunique()
+    keys = full[full == len(DIRECT_MODELS)].reset_index()[["origin", "h"]]
+    d = direct.merge(keys, on=["origin", "h"])
+    n = naive.merge(keys, on=["origin", "h"])
+    return pd.concat([d, n], ignore_index=True)

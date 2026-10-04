@@ -10,11 +10,12 @@ Español · [English version](README.md)
 
 ## Por qué este proyecto
 
-La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder tres preguntas que un analista recibe de verdad:
+La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder cuatro preguntas que un analista recibe de verdad:
 
 1. ¿Qué tan grande fue la caída de la mora durante el COVID y cuánto ha vuelto?
 2. ¿El alza reciente es un deterioro de *todo el sistema*, de unos pocos bancos, o un cambio en quién presta?
 3. ¿Un modelo simple pronostica la mora del próximo trimestre mejor que "igual que hoy"?
+4. ¿Mejoran esos pronósticos los indicadores macro (desempleo, tasa de política monetaria, IMACEC)?
 
 Todo corre con un solo comando y cada número de abajo sale de esa corrida.
 
@@ -30,6 +31,8 @@ Fuente: [CMF Chile — *Indicador de morosidad de 90 días o más individual del
 | Medida | % de colocaciones con 90+ días de atraso, para total, comercial, personas, consumo y vivienda; más el monto moroso en MM$ |
 
 El panel limpio, que es pequeño, está versionado en [`data/panel_mora90.csv`](data/panel_mora90.csv): los tests y las corridas con `--offline` no necesitan red. Los `.xlsx` originales se descargan al ejecutar y no se versionan.
+
+**Indicadores macro (hallazgo 5).** Desempleo, tasa de política monetaria (TPM) e IMACEC mensuales desde [mindicador.cl](https://mindicador.cl), una API abierta que replica series del Banco Central y del INE. Es un agregador de terceros, no el publicador oficial, así que las cifras pueden diferir de las oficiales o revisarse después; uso los valores tal como estaban al descargarlos (2026-10-03), no versiones en tiempo real. La tabla, pequeña, está versionada en [`data/macro_indicators.csv`](data/macro_indicators.csv). El IPC queda fuera porque la API solo lo entrega hasta 2025-12.
 
 ### Cosas que hacen los archivos y que un lector ingenuo interpretaría mal
 
@@ -96,6 +99,39 @@ Backtest con origen móvil sobre el total del sistema (primer pronóstico tras 6
 
 ![Backtest](reports/figures/04_backtest_rmae.png)
 
+### 5. Los indicadores macro no mejoran el pronóstico
+
+Probé tres indicadores mensuales: desempleo, tasa de política monetaria e IMACEC (variación anual). El desempleo y el IMACEC se rezagan un mes por publicación, de modo que un pronóstico solo usa lo que se sabía en su origen.
+
+**Sí se mueven antes que la mora, con signos que requieren cuidado.** Correlación entre el cambio a 12 meses de la mora y el cambio a 12 meses de cada indicador, con el indicador adelantado *k* meses (116 observaciones solapadas):
+
+| Indicador | Mismo mes | Adelantado 6 meses | Adelantado 12 meses |
+|---|---|---|---|
+| Tasa de política monetaria (TPM) | −0,14 | +0,39 | **+0,67** |
+| Desempleo | +0,16 | −0,27 | **−0,51** |
+| IMACEC (variación anual) | −0,40 | −0,34 | −0,11 |
+
+![Correlaciones rezagadas](reports/figures/06_macro_rezagos.png)
+
+- La tasa de política monetaria, un año antes, se correlaciona fuerte con el alza de la mora: consistente con que las alzas de tasa se traspasan a los deudores, lo que no probé como afirmación causal.
+- El desempleo tiene el signo *equivocado* en los rezagos largos. El desempleo subió con fuerza en 2020 mientras la mora caía, por las medidas de alivio, y ese episodio domina una muestra tan corta.
+- Son cambios sobre ventanas de 12 meses solapadas, así que las correlaciones vecinas no son independientes y no doy p-valores. Es una descripción, no una prueba.
+
+**Pero agregarlos empeora los pronósticos.** Pronósticos directos a cada horizonte (mínimos cuadrados del cambio futuro sobre las features de hoy), con el mismo protocolo de origen móvil del hallazgo 4 (68 orígenes a un mes). La referencia es el mismo modelo sin macro, así que la tabla aísla lo que aportan los indicadores. Menos de 1 es mejor.
+
+| Horizonte | Solo momentum, vs ingenuo | + desempleo, vs solo momentum | + desempleo, TPM e IMACEC, vs solo momentum |
+|---|---|---|---|
+| 1 mes | 0,95 [0,87; 1,06] | 1,11 [1,01; 1,21] | 1,14 [1,03; 1,27] |
+| 3 meses | **0,82 [0,70; 0,97]** | 1,24 [1,04; 1,47] | 1,30 [0,99; 1,70] |
+| 6 meses | 0,98 [0,80; 1,13] | 1,22 [0,97; 1,47] | 1,21 [0,73; 1,95] |
+| 12 meses | 1,13 [1,02; 1,28] | 1,12 [0,89; 1,24] | 1,10 [0,61; 1,91] |
+
+![Aporte de agregar indicadores macro](reports/figures/07_macro_aporte.png)
+
+- Agregar macro sube el error entre 10 y 30% respecto de usar solo el momentum. A 1 y 3 meses con desempleo, y a 1 mes con los tres indicadores, el intervalo excluye el 1: es peor, no solo "no mejor". En el resto los intervalos incluyen el 1.
+- El momentum solo (el cambio de los últimos tres meses) le gana al ingenuo únicamente a 3 meses (0,82, casi igual que el ARIMA del hallazgo 4) y es *peor* que el ingenuo a 12 meses.
+- **No probé por qué el macro perjudica.** Una causa plausible es que en las ventanas de entrenamiento el alivio del COVID invirtió el vínculo habitual entre desempleo y mora, así que los coeficientes aprendidos ahí inducen a error después; la fila de desempleo de la tabla de correlaciones es el síntoma. Con 60 a 120 meses, tres regresores adicionales también pueden simplemente sobreajustar.
+
 ## Limitaciones
 
 - **Mora no es pérdida.** La mora a 90+ días no dice nada sobre recuperaciones, provisiones ni castigos.
@@ -103,6 +139,7 @@ Backtest con origen móvil sobre el total del sistema (primer pronóstico tras 6
 - **Los saldos de colocaciones son implícitos, no publicados.** La CMF entrega la mora en % y en MM$, pero no el stock de colocaciones, así que lo despejo como `MM$ / (% / 100)`. Solo está definido donde la mora es positiva, por lo que los bancos con 0% salen de los ponderadores. Por eso el valor reconstruido del sistema en la descomposición (2,49%) queda algo sobre el oficial (2,44%).
 - **Backtest pequeño.** 56–68 orígenes solapados sobre una sola serie con cambios de régimen. Los intervalos son anchos y la ventana de evaluación parte en 2021, así que mide sobre todo el rebote posterior al COVID.
 - **Las historias de las entidades no son del todo comparables.** Los nombres cambian en la fuente (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), la serie BBVA/Scotiabank Azul termina en 2018-08 y Banco Security deja de reportarse después de 2025-10. Manejo los cambios de nombre que pude identificar en los archivos; no investigué las operaciones societarias detrás de ellos.
+- **Los datos macro no son versiones en tiempo real.** Vienen de un agregador de terceros y son los valores disponibles en la fecha de descarga; revisiones posteriores no se verían. El rezago de publicación de un mes que aplico al desempleo y al IMACEC es un supuesto que no verifiqué contra los calendarios oficiales, y solo probé modelos lineales.
 
 ## Cómo correrlo
 
@@ -112,8 +149,8 @@ pip install -r requirements.txt
 export PYTHONPATH=src                                # PowerShell: $env:PYTHONPATH="src"
 
 python -m cmf_delinquency.pipeline --offline         # usa el panel versionado, ~30 s
-python -m cmf_delinquency.pipeline                   # descarga primero los 128 archivos
-pytest                                               # 49 tests, sin red
+python -m cmf_delinquency.pipeline                   # descarga primero los 128 archivos y las series macro
+pytest                                               # 64 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -125,10 +162,11 @@ src/cmf_delinquency/
   download.py   lee la página índice y baja los .xlsx mensuales (idempotente)
   parse.py      tres formatos -> un panel limpio, alias de nombres, fusiones
   analysis.py   regímenes, descomposición dentro/mezcla, dispersión, persistencia de rangos
+  macro.py      indicadores macro abiertos (mindicador.cl) y rezagos de publicación
   forecast.py   backtest con origen móvil, intervalos por bootstrap de bloques
   plots.py      figuras
   pipeline.py   de punta a punta
-tests/          49 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real
+tests/          64 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro y de no mirar hacia adelante
 ```
 
 ## Licencia
