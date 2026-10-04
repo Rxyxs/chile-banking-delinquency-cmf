@@ -117,6 +117,166 @@
     "iqr_ultimo": 0.4241
   },
   "persistencia_rangos_consumo": 0.6923,
+  "macro": {
+    "meses_macro": {
+      "desde": "2015-01",
+      "hasta": "2026-08"
+    },
+    "rezago_publicacion_meses": {
+      "unemployment_pct": 1,
+      "tpm_pct": 0,
+      "imacec_yoy_pct": 1
+    },
+    "correlacion_cambios_12m": {
+      "unemployment_pct": {
+        "lag0": 0.1598,
+        "lag6": -0.2708,
+        "lag12": -0.5129,
+        "max_abs": -0.5129,
+        "lag_max_abs": 12,
+        "n": 116
+      },
+      "tpm_pct": {
+        "lag0": -0.1407,
+        "lag6": 0.3941,
+        "lag12": 0.6715,
+        "max_abs": 0.6715,
+        "lag_max_abs": 12,
+        "n": 116
+      },
+      "imacec_yoy_pct": {
+        "lag0": -0.3963,
+        "lag6": -0.3393,
+        "lag12": -0.1097,
+        "max_abs": -0.4102,
+        "lag_max_abs": 2,
+        "n": 116
+      }
+    },
+    "origenes_h1": 68,
+    "backtest": [
+      {
+        "model": "momentum",
+        "h": 1,
+        "vs_naive": 0.9512,
+        "vs_naive_lo": 0.8651,
+        "vs_naive_hi": 1.0576,
+        "vs_momentum": 1.0,
+        "vs_momentum_lo": 1.0,
+        "vs_momentum_hi": 1.0
+      },
+      {
+        "model": "momentum",
+        "h": 3,
+        "vs_naive": 0.824,
+        "vs_naive_lo": 0.702,
+        "vs_naive_hi": 0.9654,
+        "vs_momentum": 1.0,
+        "vs_momentum_lo": 1.0,
+        "vs_momentum_hi": 1.0
+      },
+      {
+        "model": "momentum",
+        "h": 6,
+        "vs_naive": 0.982,
+        "vs_naive_lo": 0.7977,
+        "vs_naive_hi": 1.1323,
+        "vs_momentum": 1.0,
+        "vs_momentum_lo": 1.0,
+        "vs_momentum_hi": 1.0
+      },
+      {
+        "model": "momentum",
+        "h": 12,
+        "vs_naive": 1.1342,
+        "vs_naive_lo": 1.0167,
+        "vs_naive_hi": 1.2821,
+        "vs_momentum": 1.0,
+        "vs_momentum_lo": 1.0,
+        "vs_momentum_hi": 1.0
+      },
+      {
+        "model": "momentum+unemployment",
+        "h": 1,
+        "vs_naive": 1.0562,
+        "vs_naive_lo": 0.9367,
+        "vs_naive_hi": 1.1797,
+        "vs_momentum": 1.1103,
+        "vs_momentum_lo": 1.0082,
+        "vs_momentum_hi": 1.2104
+      },
+      {
+        "model": "momentum+unemployment",
+        "h": 3,
+        "vs_naive": 1.0198,
+        "vs_naive_lo": 0.8061,
+        "vs_naive_hi": 1.2735,
+        "vs_momentum": 1.2376,
+        "vs_momentum_lo": 1.0362,
+        "vs_momentum_hi": 1.4666
+      },
+      {
+        "model": "momentum+unemployment",
+        "h": 6,
+        "vs_naive": 1.1976,
+        "vs_naive_lo": 0.8895,
+        "vs_naive_hi": 1.4306,
+        "vs_momentum": 1.2196,
+        "vs_momentum_lo": 0.9729,
+        "vs_momentum_hi": 1.4687
+      },
+      {
+        "model": "momentum+unemployment",
+        "h": 12,
+        "vs_naive": 1.2698,
+        "vs_naive_lo": 1.0444,
+        "vs_naive_hi": 1.4287,
+        "vs_momentum": 1.1196,
+        "vs_momentum_lo": 0.894,
+        "vs_momentum_hi": 1.2371
+      },
+      {
+        "model": "momentum+macro",
+        "h": 1,
+        "vs_naive": 1.0856,
+        "vs_naive_lo": 0.9504,
+        "vs_naive_hi": 1.2443,
+        "vs_momentum": 1.1413,
+        "vs_momentum_lo": 1.0293,
+        "vs_momentum_hi": 1.2673
+      },
+      {
+        "model": "momentum+macro",
+        "h": 3,
+        "vs_naive": 1.0753,
+        "vs_naive_lo": 0.8058,
+        "vs_naive_hi": 1.4011,
+        "vs_momentum": 1.305,
+        "vs_momentum_lo": 0.9929,
+        "vs_momentum_hi": 1.7015
+      },
+      {
+        "model": "momentum+macro",
+        "h": 6,
+        "vs_naive": 1.1916,
+        "vs_naive_lo": 0.7724,
+        "vs_naive_hi": 1.7359,
+        "vs_momentum": 1.2134,
+        "vs_momentum_lo": 0.7325,
+        "vs_momentum_hi": 1.9515
+      },
+      {
+        "model": "momentum+macro",
+        "h": 12,
+        "vs_naive": 1.2434,
+        "vs_naive_lo": 0.7115,
+        "vs_naive_hi": 2.1313,
+        "vs_momentum": 1.0963,
+        "vs_momentum_lo": 0.607,
+        "vs_momentum_hi": 1.914
+      }
+    ]
+  },
   "backtest": {
     "origenes_h1": 68,
     "rmae": {

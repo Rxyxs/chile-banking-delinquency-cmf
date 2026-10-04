@@ -166,3 +166,46 @@ def fig_heatmap(panel: pd.DataFrame, path: Path) -> Path:
     cbar.ax.tick_params(labelsize=8, colors=INK_2, length=0)
     ax.set_title("Mora 90+ días total por banco y año (promedio anual, %)", loc="left", color=INK, fontsize=12)
     return _save(fig, path)
+
+
+MACRO_LABELS = {"unemployment_pct": "Desempleo", "tpm_pct": "Tasa de política monetaria", "imacec_yoy_pct": "IMACEC (var. anual)"}
+
+
+def fig_leadlag(lead_lag: dict, path: Path) -> Path:
+    """Correlación entre el cambio a 12 meses de la mora y el de cada indicador adelantado k meses."""
+    colors = {"unemployment_pct": SERIES["blue"], "tpm_pct": SERIES["orange"], "imacec_yoy_pct": SERIES["aqua"]}
+    fig, ax = plt.subplots(figsize=(9, 4.6), facecolor=SURFACE)
+    _style(ax)
+    ax.axhline(0, color=INK_2, linewidth=0.9)
+    for col, df in lead_lag.items():
+        ax.plot(df["lag"], df["corr"], color=colors[col], linewidth=2, marker="o", markersize=5,
+                markeredgecolor=SURFACE, markeredgewidth=1.2, label=MACRO_LABELS[col])
+    ax.set_xticks(range(0, 13))
+    ax.set_xlabel("Meses que el indicador se adelanta a la mora", color=INK_2, fontsize=9)
+    ax.set_ylabel("Correlación de cambios a 12 meses", color=INK_2, fontsize=9)
+    ax.set_ylim(-0.8, 0.8)
+    ax.set_title("¿Se mueven los indicadores antes que la mora?", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, ncol=3, loc="lower left", bbox_to_anchor=(0.0, -0.28))
+    return _save(fig, path)
+
+
+def fig_macro_value(table: pd.DataFrame, path: Path) -> Path:
+    """MAE de agregar macro, relativo al modelo con solo momentum (1 = no aporta; menor es mejor)."""
+    models = [("momentum+unemployment", "Momentum + desempleo", SERIES["blue"]), ("momentum+macro", "Momentum + desempleo, TPM e IMACEC", SERIES["orange"])]
+    horizons = sorted(table["h"].unique())
+    fig, ax = plt.subplots(figsize=(9, 4.6), facecolor=SURFACE)
+    _style(ax)
+    width = 0.22
+    for i, (key, label, color) in enumerate(models):
+        sub = table[table["model"] == key].set_index("h").loc[horizons]
+        x = np.arange(len(horizons)) + (i - 0.5) * width
+        ax.errorbar(x, sub["vs_momentum"], yerr=[sub["vs_momentum"] - sub["vs_momentum_lo"], sub["vs_momentum_hi"] - sub["vs_momentum"]],
+                    fmt="o", color=color, ecolor=color, markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5,
+                    elinewidth=1.6, capsize=0, label=label)
+    ax.axhline(1.0, color=INK, linewidth=1.2)
+    ax.text(2.5, 1.02, "Solo momentum = 1", ha="center", va="bottom", fontsize=9, color=INK)
+    ax.set_xticks(range(len(horizons)), [f"{h} mes" + ("es" if h > 1 else "") for h in horizons])
+    ax.set_ylabel("MAE relativo al modelo sin macro (menor es mejor)", color=INK_2, fontsize=9)
+    ax.set_title("¿Agregar indicadores macro mejora el pronóstico? (IC 95%)", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.1), ncol=2)
+    return _save(fig, path)
