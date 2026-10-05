@@ -209,3 +209,51 @@ def fig_macro_value(table: pd.DataFrame, path: Path) -> Path:
     ax.set_title("¿Agregar indicadores macro mejora el pronóstico? (IC 95%)", loc="left", color=INK, fontsize=12, pad=12)
     ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.1), ncol=2)
     return _save(fig, path)
+
+
+BANK_MODEL_LABELS = {"ets_damped": "ETS amortiguado (por banco)", "pooled_gap": "Agrupado: momentum + brecha al sistema",
+                     "pooled_system": "Agrupado: + momentum del sistema"}
+
+
+def fig_bank_models(table: pd.DataFrame, path: Path) -> Path:
+    """MAE promedio entre bancos relativo al ingenuo, con IC 95% por bootstrap sobre orígenes."""
+    models = [("ets_damped", SERIES["blue"]), ("pooled_gap", SERIES["orange"]), ("pooled_system", SERIES["aqua"])]
+    horizons = sorted(table["h"].unique())
+    fig, ax = plt.subplots(figsize=(9, 4.6), facecolor=SURFACE)
+    _style(ax)
+    width = 0.22
+    for i, (key, color) in enumerate(models):
+        sub = table[table["model"] == key].set_index("h").loc[horizons]
+        x = np.arange(len(horizons)) + (i - 1) * width
+        ax.errorbar(x, sub["vs_naive"], yerr=[sub["vs_naive"] - sub["vs_naive_lo"], sub["vs_naive_hi"] - sub["vs_naive"]],
+                    fmt="o", color=color, ecolor=color, markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5,
+                    elinewidth=1.6, capsize=0, label=BANK_MODEL_LABELS[key])
+    ax.axhline(1.0, color=INK, linewidth=1.2)
+    ax.text(1.5, 1.004, "Ingenuo = 1", ha="center", va="bottom", fontsize=9, color=INK)
+    ax.set_xticks(range(len(horizons)), [f"{h} mes" + ("es" if h > 1 else "") for h in horizons])
+    ax.set_ylabel("MAE relativo al ingenuo (menor es mejor)", color=INK_2, fontsize=9)
+    ax.set_title("Pronóstico de la mora por banco: ¿algún modelo le gana al ingenuo?", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.1), ncol=2)
+    return _save(fig, path)
+
+
+def fig_bank_detail(detail: pd.DataFrame, h: int, path: Path) -> Path:
+    """MAE relativo al ingenuo, banco por banco, a un horizonte."""
+    order = detail[detail["model"] == "pooled_system"].sort_values("rmae")["bank"].tolist()
+    models = [("pooled_system", SERIES["aqua"]), ("ets_damped", SERIES["blue"])]
+    fig, ax = plt.subplots(figsize=(8.5, 0.5 * len(order) + 1.8), facecolor=SURFACE)
+    _style(ax)
+    ax.grid(axis="x", color=GRID, linewidth=0.8)
+    ax.grid(axis="y", visible=False)
+    for i, (key, color) in enumerate(models):
+        sub = detail[detail["model"] == key].set_index("bank").loc[order]
+        y = np.arange(len(order)) + (i - 0.5) * 0.28
+        ax.errorbar(sub["rmae"], y, xerr=[sub["rmae"] - sub["lo"], sub["hi"] - sub["rmae"]], fmt="o", color=color, ecolor=color,
+                    markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, elinewidth=1.6, capsize=0,
+                    label=BANK_MODEL_LABELS[key])
+    ax.axvline(1.0, color=INK, linewidth=1.2)
+    ax.set_yticks(range(len(order)), order, fontsize=9, color=INK)
+    ax.set_xlabel(f"MAE relativo al ingenuo a {h} meses (menor es mejor)", color=INK_2, fontsize=9)
+    ax.set_title(f"Banco por banco a {h} meses (IC 95%)", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.12), ncol=2)
+    return _save(fig, path)

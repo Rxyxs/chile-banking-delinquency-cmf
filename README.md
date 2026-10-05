@@ -10,12 +10,13 @@
 
 ## Why this project
 
-Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer four questions an analyst actually gets asked:
+Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer five questions an analyst actually gets asked:
 
 1. How big was the COVID-era drop in arrears, and how much of it has come back?
 2. Is the recent rise a *system-wide* deterioration, or is it a few banks, or a shift in who lends?
 3. Can a simple model forecast next quarter's delinquency better than "same as today"?
 4. Do macro indicators (unemployment, the policy rate, IMACEC) improve those forecasts?
+5. Can an individual bank's delinquency be forecast, by borrowing strength across banks?
 
 Everything runs from one command and every number below comes from that run.
 
@@ -132,6 +133,32 @@ I tested three monthly indicators: unemployment, the policy rate and IMACEC (ann
 - Momentum alone (the change over the last three months) beats the naive forecast only at 3 months (0.82, about the same as the ARIMA of finding 4) and is *worse* than naive at 12 months.
 - **I did not test why macro hurts.** A plausible cause is that in the training windows the COVID relief reversed the usual link between unemployment and arrears, so the coefficients learned there mislead afterwards; the unemployment row of the correlation table is the symptom. With 60 to 120 months, three extra regressors can also simply overfit.
 
+### 6. Individual banks are close to a random walk
+
+Forecasting one bank's arrears is harder than forecasting the system: each series is short and noisy. A natural idea is to borrow strength across banks with a single pooled regression whose features include the bank's **gap to the system** (does a bank far above the system drift back toward it?) and the system's own momentum. I tested it on the 10 banks with at least 100 months of data and a median share of at least 1% of system loans. The rest are foreign branches and small banks whose arrears jump from 0% to 4% on a single loan and would dominate any average error.
+
+Same protocol as finding 4 (68 origins at one month). The table gives the mean absolute error across banks relative to the naive forecast, with a block bootstrap that resamples by month (banks in the same month share the month's shock, so resampling banks one by one would understate the uncertainty). Below 1 is better.
+
+| Horizon | Naive error (pp) | ETS per bank | Pooled: momentum + gap | Pooled: also system momentum |
+|---|---|---|---|---|
+| 1 month | 0.09 | 1.01 [0.99, 1.03] | 1.01 [0.99, 1.02] | 0.99 [0.97, 1.00] |
+| 3 months | 0.16 | 0.99 [0.97, 1.01] | 1.00 [0.98, 1.03] | **0.96 [0.92, 1.00]** |
+| 6 months | 0.24 | 0.98 [0.94, 1.03] | 1.00 [0.97, 1.05] | 0.98 [0.91, 1.04] |
+| 12 months | 0.33 | 0.99 [0.94, 1.06] | 1.06 [1.03, 1.15] | 1.08 [1.03, 1.17] |
+
+![Per-bank forecast models against the naive forecast](reports/figures/08_bancos_modelos.png)
+
+- **No model clearly beats "same as today" at any horizon.** The closest is the pooled model with the system's momentum at 3 months (0.96), whose interval touches 1.00.
+- **The gap to the system adds nothing.** Comparing the pooled model with the gap against the same model without it gives 1.00 at every horizon up to 6 months (intervals within 0.98 to 1.02): no evidence of mean reversion toward the system level in this sample. I checked that the method can see it when it exists: on synthetic banks built with a 15% monthly reversion it cuts the error by 13% (0.87 [0.81, 0.94]), and with no reversion it does not (1.04 [1.01, 1.08]).
+- **At 12 months the pooled models are worse** than naive (1.06 and 1.08, intervals above 1).
+- **ETS is almost identical to naive** because a damped trend on these smooth series stays nearly flat.
+
+![Bank by bank at 6 months](reports/figures/09_bancos_detalle.png)
+
+Bank by bank at 6 months, two intervals for the pooled model exclude 1: Banco Consorcio (0.87 [0.81, 0.92]) and Scotiabank Chile (0.88 [0.77, 0.98]). With 20 intervals (10 banks, 2 models), one or two falling outside by chance is expected, so I do not read them as banks that are predictable.
+
+Limits: total arrears only, 10 banks, no correction for multiple comparisons, and the errors are small in absolute terms (0.09 to 0.33 pp), so an edge of 2 to 4% is a few hundredths of a percentage point.
+
 ## Limitations
 
 - **Arrears are not losses.** 90+ day delinquency says nothing about recoveries, provisions or write-offs.
@@ -140,6 +167,7 @@ I tested three monthly indicators: unemployment, the policy rate and IMACEC (ann
 - **Small backtest.** 56–68 overlapping origins on one regime-shifting series. The intervals are wide and the evaluation window starts in 2021, so it mostly measures the post-COVID rebound.
 - **Entity histories are not fully comparable.** Names change in the source (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), the BBVA/Scotiabank Azul series ends in 2018-08 and Banco Security is no longer reported after 2025-10. I handle the renames I could identify in the files; I did not research the corporate transactions behind them.
 - **Macro data are not real-time vintages.** They come from a third-party aggregator and are the values available on the download date; later revisions would not be visible. The one-month publication lag I apply to unemployment and IMACEC is an assumption I did not check against the official calendars, and I only tried linear models.
+- **The per-bank study covers 10 banks** chosen by data length and size, not all 24 entities, and it compares many intervals without correcting for it. A bank that looks predictable at one horizon is most likely noise.
 
 ## Run it
 
@@ -150,7 +178,7 @@ export PYTHONPATH=src                                # Windows PowerShell: $env:
 
 python -m cmf_delinquency.pipeline --offline         # uses the committed panel, ~30 s
 python -m cmf_delinquency.pipeline                   # downloads the 128 files and the macro series first
-pytest                                               # 64 tests, no network
+pytest                                               # 77 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -163,10 +191,11 @@ src/cmf_delinquency/
   parse.py      three layouts -> one tidy panel, name aliases, mergers
   analysis.py   regimes, within/mix decomposition, dispersion, rank persistence
   macro.py      open macro indicators (mindicador.cl) and publication lags
+  banks.py      per-bank forecasts: pooled models across banks, bank selection
   forecast.py   rolling-origin backtest, block-bootstrap intervals
   plots.py      figures
   pipeline.py   end to end
-tests/          64 tests: synthetic files in both layouts + integrity checks on the real panel + macro and no-look-ahead checks
+tests/          77 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank and no-look-ahead checks
 ```
 
 ## License
