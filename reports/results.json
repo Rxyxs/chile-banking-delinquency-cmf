@@ -277,6 +277,331 @@
       }
     ]
   },
+  "bancos_pronostico": {
+    "bancos": [
+      "Banco Bice",
+      "Banco Consorcio",
+      "Banco Internacional",
+      "Banco Itaú Chile",
+      "Banco Santander-Chile",
+      "Banco Security",
+      "Banco de Chile",
+      "Banco de Crédito e Inversiones",
+      "Banco del Estado de Chile",
+      "Scotiabank Chile"
+    ],
+    "origenes_h1": 68,
+    "mae_naive_pp": {
+      "1": 0.0879,
+      "3": 0.162,
+      "6": 0.236,
+      "12": 0.3328
+    },
+    "backtest": [
+      {
+        "model": "ets_damped",
+        "h": 1,
+        "vs_naive": 1.0142,
+        "vs_naive_lo": 0.9905,
+        "vs_naive_hi": 1.0326,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "ets_damped",
+        "h": 3,
+        "vs_naive": 0.9871,
+        "vs_naive_lo": 0.9665,
+        "vs_naive_hi": 1.0097,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "ets_damped",
+        "h": 6,
+        "vs_naive": 0.9825,
+        "vs_naive_lo": 0.9445,
+        "vs_naive_hi": 1.0283,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "ets_damped",
+        "h": 12,
+        "vs_naive": 0.9911,
+        "vs_naive_lo": 0.9369,
+        "vs_naive_hi": 1.0637,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "pooled_momentum",
+        "h": 1,
+        "vs_naive": 1.002,
+        "vs_naive_lo": 0.9948,
+        "vs_naive_hi": 1.0091,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "pooled_momentum",
+        "h": 3,
+        "vs_naive": 1.0025,
+        "vs_naive_lo": 0.989,
+        "vs_naive_hi": 1.0134,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "pooled_momentum",
+        "h": 6,
+        "vs_naive": 1.0073,
+        "vs_naive_lo": 0.9761,
+        "vs_naive_hi": 1.038,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "pooled_momentum",
+        "h": 12,
+        "vs_naive": 1.0423,
+        "vs_naive_lo": 1.0115,
+        "vs_naive_hi": 1.0857,
+        "vs_momentum": null,
+        "vs_momentum_lo": null,
+        "vs_momentum_hi": null
+      },
+      {
+        "model": "pooled_gap",
+        "h": 1,
+        "vs_naive": 1.0058,
+        "vs_naive_lo": 0.9947,
+        "vs_naive_hi": 1.0161,
+        "vs_momentum": 1.0038,
+        "vs_momentum_lo": 0.9961,
+        "vs_momentum_hi": 1.0107
+      },
+      {
+        "model": "pooled_gap",
+        "h": 3,
+        "vs_naive": 1.003,
+        "vs_naive_lo": 0.9786,
+        "vs_naive_hi": 1.0262,
+        "vs_momentum": 1.0004,
+        "vs_momentum_lo": 0.983,
+        "vs_momentum_hi": 1.02
+      },
+      {
+        "model": "pooled_gap",
+        "h": 6,
+        "vs_naive": 1.0033,
+        "vs_naive_lo": 0.9651,
+        "vs_naive_hi": 1.053,
+        "vs_momentum": 0.996,
+        "vs_momentum_lo": 0.9775,
+        "vs_momentum_hi": 1.023
+      },
+      {
+        "model": "pooled_gap",
+        "h": 12,
+        "vs_naive": 1.0561,
+        "vs_naive_lo": 1.0264,
+        "vs_naive_hi": 1.1516,
+        "vs_momentum": 1.0132,
+        "vs_momentum_lo": 0.9959,
+        "vs_momentum_hi": 1.088
+      },
+      {
+        "model": "pooled_system",
+        "h": 1,
+        "vs_naive": 0.9895,
+        "vs_naive_lo": 0.9728,
+        "vs_naive_hi": 1.0048,
+        "vs_momentum": 0.9876,
+        "vs_momentum_lo": 0.9715,
+        "vs_momentum_hi": 1.002
+      },
+      {
+        "model": "pooled_system",
+        "h": 3,
+        "vs_naive": 0.9614,
+        "vs_naive_lo": 0.919,
+        "vs_naive_hi": 1.0016,
+        "vs_momentum": 0.959,
+        "vs_momentum_lo": 0.9223,
+        "vs_momentum_hi": 0.9963
+      },
+      {
+        "model": "pooled_system",
+        "h": 6,
+        "vs_naive": 0.9802,
+        "vs_naive_lo": 0.9132,
+        "vs_naive_hi": 1.0449,
+        "vs_momentum": 0.9731,
+        "vs_momentum_lo": 0.9303,
+        "vs_momentum_hi": 1.0127
+      },
+      {
+        "model": "pooled_system",
+        "h": 12,
+        "vs_naive": 1.0798,
+        "vs_naive_lo": 1.0297,
+        "vs_naive_hi": 1.1708,
+        "vs_momentum": 1.036,
+        "vs_momentum_lo": 1.0021,
+        "vs_momentum_hi": 1.1035
+      }
+    ],
+    "por_banco_h6": [
+      {
+        "bank": "Banco Bice",
+        "model": "pooled_system",
+        "rmae": 1.025,
+        "lo": 0.7316,
+        "hi": 1.5022
+      },
+      {
+        "bank": "Banco Bice",
+        "model": "ets_damped",
+        "rmae": 0.9715,
+        "lo": 0.9301,
+        "hi": 1.0491
+      },
+      {
+        "bank": "Banco Consorcio",
+        "model": "pooled_system",
+        "rmae": 0.8672,
+        "lo": 0.8126,
+        "hi": 0.9172
+      },
+      {
+        "bank": "Banco Consorcio",
+        "model": "ets_damped",
+        "rmae": 1.0005,
+        "lo": 0.9966,
+        "hi": 1.0038
+      },
+      {
+        "bank": "Banco Internacional",
+        "model": "pooled_system",
+        "rmae": 1.0095,
+        "lo": 0.962,
+        "hi": 1.0544
+      },
+      {
+        "bank": "Banco Internacional",
+        "model": "ets_damped",
+        "rmae": 1.0047,
+        "lo": 0.9987,
+        "hi": 1.0195
+      },
+      {
+        "bank": "Banco Itaú Chile",
+        "model": "pooled_system",
+        "rmae": 1.0577,
+        "lo": 0.9092,
+        "hi": 1.2674
+      },
+      {
+        "bank": "Banco Itaú Chile",
+        "model": "ets_damped",
+        "rmae": 1.0073,
+        "lo": 0.9893,
+        "hi": 1.0269
+      },
+      {
+        "bank": "Banco Santander-Chile",
+        "model": "pooled_system",
+        "rmae": 0.9542,
+        "lo": 0.8728,
+        "hi": 1.018
+      },
+      {
+        "bank": "Banco Santander-Chile",
+        "model": "ets_damped",
+        "rmae": 0.8221,
+        "lo": 0.6426,
+        "hi": 1.051
+      },
+      {
+        "bank": "Banco Security",
+        "model": "pooled_system",
+        "rmae": 1.0575,
+        "lo": 0.9519,
+        "hi": 1.2249
+      },
+      {
+        "bank": "Banco Security",
+        "model": "ets_damped",
+        "rmae": 1.0248,
+        "lo": 0.9719,
+        "hi": 1.0691
+      },
+      {
+        "bank": "Banco de Chile",
+        "model": "pooled_system",
+        "rmae": 1.0901,
+        "lo": 0.6969,
+        "hi": 1.5853
+      },
+      {
+        "bank": "Banco de Chile",
+        "model": "ets_damped",
+        "rmae": 1.0746,
+        "lo": 0.999,
+        "hi": 1.1368
+      },
+      {
+        "bank": "Banco de Crédito e Inversiones",
+        "model": "pooled_system",
+        "rmae": 0.929,
+        "lo": 0.7488,
+        "hi": 1.0808
+      },
+      {
+        "bank": "Banco de Crédito e Inversiones",
+        "model": "ets_damped",
+        "rmae": 1.0305,
+        "lo": 0.9894,
+        "hi": 1.0719
+      },
+      {
+        "bank": "Banco del Estado de Chile",
+        "model": "pooled_system",
+        "rmae": 1.0653,
+        "lo": 0.9476,
+        "hi": 1.1997
+      },
+      {
+        "bank": "Banco del Estado de Chile",
+        "model": "ets_damped",
+        "rmae": 0.8905,
+        "lo": 0.7348,
+        "hi": 1.0731
+      },
+      {
+        "bank": "Scotiabank Chile",
+        "model": "pooled_system",
+        "rmae": 0.8824,
+        "lo": 0.7652,
+        "hi": 0.9799
+      },
+      {
+        "bank": "Scotiabank Chile",
+        "model": "ets_damped",
+        "rmae": 1.0862,
+        "lo": 0.9713,
+        "hi": 1.2552
+      }
+    ]
+  },
   "backtest": {
     "origenes_h1": 68,
     "rmae": {

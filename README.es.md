@@ -10,12 +10,13 @@ Español · [English version](README.md)
 
 ## Por qué este proyecto
 
-La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder cuatro preguntas que un analista recibe de verdad:
+La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder cinco preguntas que un analista recibe de verdad:
 
 1. ¿Qué tan grande fue la caída de la mora durante el COVID y cuánto ha vuelto?
 2. ¿El alza reciente es un deterioro de *todo el sistema*, de unos pocos bancos, o un cambio en quién presta?
 3. ¿Un modelo simple pronostica la mora del próximo trimestre mejor que "igual que hoy"?
 4. ¿Mejoran esos pronósticos los indicadores macro (desempleo, tasa de política monetaria, IMACEC)?
+5. ¿Se puede pronosticar la mora de un banco en particular, tomando información entre bancos?
 
 Todo corre con un solo comando y cada número de abajo sale de esa corrida.
 
@@ -132,6 +133,32 @@ Probé tres indicadores mensuales: desempleo, tasa de política monetaria e IMAC
 - El momentum solo (el cambio de los últimos tres meses) le gana al ingenuo únicamente a 3 meses (0,82, casi igual que el ARIMA del hallazgo 4) y es *peor* que el ingenuo a 12 meses.
 - **No probé por qué el macro perjudica.** Una causa plausible es que en las ventanas de entrenamiento el alivio del COVID invirtió el vínculo habitual entre desempleo y mora, así que los coeficientes aprendidos ahí inducen a error después; la fila de desempleo de la tabla de correlaciones es el síntoma. Con 60 a 120 meses, tres regresores adicionales también pueden simplemente sobreajustar.
 
+### 6. Los bancos individuales se parecen a un paseo aleatorio
+
+Pronosticar la mora de un banco es más difícil que pronosticar la del sistema: cada serie es corta y ruidosa. Una idea natural es tomar información entre bancos con una sola regresión agrupada cuyas features incluyen la **brecha del banco respecto del sistema** (¿un banco muy por sobre el sistema tiende a volver hacia él?) y el momentum del propio sistema. La probé en los 10 bancos con al menos 100 meses de datos y una participación mediana de al menos 1% de las colocaciones del sistema. El resto son sucursales de bancos extranjeros y bancos pequeños cuya mora salta de 0% a 4% con un solo crédito y dominarían cualquier error promedio.
+
+Mismo protocolo que el hallazgo 4 (68 orígenes a un mes). La tabla da el error absoluto medio entre bancos relativo al pronóstico ingenuo, con un bootstrap de bloques que remuestrea por mes (los bancos de un mismo mes comparten el shock del mes, así que remuestrear banco por banco subestimaría la incertidumbre). Menos de 1 es mejor.
+
+| Horizonte | Error del ingenuo (pp) | ETS por banco | Agrupado: momentum + brecha | Agrupado: también momentum del sistema |
+|---|---|---|---|---|
+| 1 mes | 0,09 | 1,01 [0,99; 1,03] | 1,01 [0,99; 1,02] | 0,99 [0,97; 1,00] |
+| 3 meses | 0,16 | 0,99 [0,97; 1,01] | 1,00 [0,98; 1,03] | **0,96 [0,92; 1,00]** |
+| 6 meses | 0,24 | 0,98 [0,94; 1,03] | 1,00 [0,97; 1,05] | 0,98 [0,91; 1,04] |
+| 12 meses | 0,33 | 0,99 [0,94; 1,06] | 1,06 [1,03; 1,15] | 1,08 [1,03; 1,17] |
+
+![Modelos de pronóstico por banco contra el ingenuo](reports/figures/08_bancos_modelos.png)
+
+- **Ningún modelo le gana con claridad a "igual que hoy" en ningún horizonte.** El más cercano es el agrupado con el momentum del sistema a 3 meses (0,96), cuyo intervalo toca 1,00.
+- **La brecha respecto del sistema no aporta nada.** Comparar el modelo agrupado con la brecha contra el mismo modelo sin ella da 1,00 en todos los horizontes hasta 6 meses (intervalos dentro de 0,98 a 1,02): no hay evidencia de reversión hacia el nivel del sistema en esta muestra. Comprobé que el método puede verla cuando existe: en bancos sintéticos construidos con 15% de reversión mensual recorta el error 13% (0,87 [0,81; 0,94]), y sin reversión no lo hace (1,04 [1,01; 1,08]).
+- **A 12 meses los modelos agrupados son peores** que el ingenuo (1,06 y 1,08, intervalos sobre 1).
+- **ETS es casi idéntico al ingenuo** porque una tendencia amortiguada sobre estas series suaves queda casi plana.
+
+![Banco por banco a 6 meses](reports/figures/09_bancos_detalle.png)
+
+Banco por banco a 6 meses, dos intervalos del modelo agrupado excluyen el 1: Banco Consorcio (0,87 [0,81; 0,92]) y Scotiabank Chile (0,88 [0,77; 0,98]). Con 20 intervalos (10 bancos, 2 modelos), es esperable que uno o dos queden fuera por azar, así que no los leo como bancos predecibles.
+
+Límites: solo la mora total, 10 bancos, sin corrección por comparaciones múltiples, y los errores son pequeños en términos absolutos (0,09 a 0,33 pp), así que una ventaja de 2 a 4% son unas pocas centésimas de punto porcentual.
+
 ## Limitaciones
 
 - **Mora no es pérdida.** La mora a 90+ días no dice nada sobre recuperaciones, provisiones ni castigos.
@@ -140,6 +167,7 @@ Probé tres indicadores mensuales: desempleo, tasa de política monetaria e IMAC
 - **Backtest pequeño.** 56–68 orígenes solapados sobre una sola serie con cambios de régimen. Los intervalos son anchos y la ventana de evaluación parte en 2021, así que mide sobre todo el rebote posterior al COVID.
 - **Las historias de las entidades no son del todo comparables.** Los nombres cambian en la fuente (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), la serie BBVA/Scotiabank Azul termina en 2018-08 y Banco Security deja de reportarse después de 2025-10. Manejo los cambios de nombre que pude identificar en los archivos; no investigué las operaciones societarias detrás de ellos.
 - **Los datos macro no son versiones en tiempo real.** Vienen de un agregador de terceros y son los valores disponibles en la fecha de descarga; revisiones posteriores no se verían. El rezago de publicación de un mes que aplico al desempleo y al IMACEC es un supuesto que no verifiqué contra los calendarios oficiales, y solo probé modelos lineales.
+- **El estudio por banco cubre 10 bancos** elegidos por largo de datos y tamaño, no las 24 entidades, y compara muchos intervalos sin corregirlo. Un banco que parece predecible a un horizonte es muy probablemente ruido.
 
 ## Cómo correrlo
 
@@ -150,7 +178,7 @@ export PYTHONPATH=src                                # PowerShell: $env:PYTHONPA
 
 python -m cmf_delinquency.pipeline --offline         # usa el panel versionado, ~30 s
 python -m cmf_delinquency.pipeline                   # descarga primero los 128 archivos y las series macro
-pytest                                               # 64 tests, sin red
+pytest                                               # 77 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -163,10 +191,11 @@ src/cmf_delinquency/
   parse.py      tres formatos -> un panel limpio, alias de nombres, fusiones
   analysis.py   regímenes, descomposición dentro/mezcla, dispersión, persistencia de rangos
   macro.py      indicadores macro abiertos (mindicador.cl) y rezagos de publicación
+  banks.py      pronóstico por banco: modelos agrupados entre bancos, selección de bancos
   forecast.py   backtest con origen móvil, intervalos por bootstrap de bloques
   plots.py      figuras
   pipeline.py   de punta a punta
-tests/          64 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro y de no mirar hacia adelante
+tests/          77 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco y de no mirar hacia adelante
 ```
 
 ## Licencia

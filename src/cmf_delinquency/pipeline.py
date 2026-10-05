@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
 
 from . import analysis as A
+from . import banks as B
 from . import forecast as F
 from . import macro as M
 from . import plots
@@ -83,9 +85,53 @@ def macro_study(series: pd.Series, macro_raw: pd.DataFrame, base_errors: pd.Data
     }
 
 
+BANK_DETAIL_H = 6
+BANK_DETAIL_MODELS = ["pooled_system", "ets_damped"]
+
+
+def bank_study(panel: pd.DataFrame, system: pd.Series) -> dict:
+    """Pronostico de la mora de cada banco: modelos agrupados que toman informacion entre bancos."""
+    banks = B.eligible_banks(panel)
+    wide = B.wide_series(panel, banks)
+    errors = B.common_support(B.pooled_rolling_origin(wide, system))
+    pooled = B.per_origin(errors)
+
+    rows = []
+    for model in B.ALL_MODELS[1:]:
+        for h in F.HORIZONS:
+            vs_naive = F.rmae_ci(pooled, model, h)
+            if model in B.POOLED_MODELS and model != "pooled_momentum":
+                vs_mom = F.rmae_ci(pooled, model, h, baseline="pooled_momentum")
+            else:
+                vs_mom = (float("nan"),) * 3
+            rows.append({"model": model, "h": h, "vs_naive": vs_naive[0], "vs_naive_lo": vs_naive[1], "vs_naive_hi": vs_naive[2],
+                         "vs_momentum": vs_mom[0], "vs_momentum_lo": vs_mom[1], "vs_momentum_hi": vs_mom[2]})
+    table = pd.DataFrame(rows)
+    table.to_csv(TABLES / "bank_forecast_ci.csv", index=False)
+
+    detail_rows = []
+    for bank in banks:
+        for model in BANK_DETAIL_MODELS:
+            sub = errors[errors["bank"] == bank]
+            point, lo, hi = F.rmae_ci(sub, model, BANK_DETAIL_H)
+            detail_rows.append({"bank": bank, "model": model, "rmae": point, "lo": lo, "hi": hi})
+    detail = pd.DataFrame(detail_rows)
+    detail.to_csv(TABLES / "bank_forecast_by_bank.csv", index=False)
+    plots.fig_bank_models(table, FIGS / "08_bancos_modelos.png")
+    plots.fig_bank_detail(detail, BANK_DETAIL_H, FIGS / "09_bancos_detalle.png")
+    return {
+        "bancos": banks,
+        "origenes_h1": int(len(pooled[(pooled["model"] == "naive") & (pooled["h"] == 1)])),
+        "mae_naive_pp": {int(h): float(g["abs_err"].mean()) for h, g in pooled[pooled["model"] == "naive"].groupby("h")},
+        "backtest": table.to_dict(orient="records"),
+        "por_banco_h6": detail.to_dict(orient="records"),
+    }
+
+
 def _round(obj):
+    """Redondea y convierte NaN/inf en None: json.dumps escribe NaN, que no es JSON valido."""
     if isinstance(obj, float):
-        return round(obj, 4)
+        return round(obj, 4) if math.isfinite(obj) else None
     if isinstance(obj, dict):
         return {k: _round(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -132,6 +178,7 @@ def run(offline: bool = False) -> dict:
     plots.fig_forecast(ci, FIGS / "04_backtest_rmae.png")
     plots.fig_heatmap(panel, FIGS / "05_mapa_calor_bancos.png")
     macro_results = macro_study(series, load_macro(offline), errors)
+    bank_results = bank_study(panel, series)
 
     peak = disp["iqr"].idxmax()
     results = {
@@ -155,6 +202,7 @@ def run(offline: bool = False) -> dict:
         },
         "persistencia_rangos_consumo": persistence,
         "macro": macro_results,
+        "bancos_pronostico": bank_results,
         "backtest": {
             "origenes_h1": int(rel.loc[1, "n"]),
             "rmae": rel[list(F.MODELS)].to_dict(orient="index"),
@@ -162,7 +210,7 @@ def run(offline: bool = False) -> dict:
         },
     }
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
-    RESULTS.write_text(json.dumps(_round(results), indent=2, ensure_ascii=False), encoding="utf-8")
+    RESULTS.write_text(json.dumps(_round(results), indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     return results
 
 
