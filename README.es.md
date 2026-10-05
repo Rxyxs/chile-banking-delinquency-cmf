@@ -8,6 +8,8 @@ Español · [English version](README.md)
 
 ![Morosidad del sistema por cartera](reports/figures/01_mora_sistema.png)
 
+**[Página interactiva](https://rxyxs.github.io/chile-banking-delinquency-cmf/)**: explora cualquier banco frente al sistema y lee los resultados del pronóstico.
+
 ## Por qué este proyecto
 
 La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder cinco preguntas que un analista recibe de verdad:
@@ -178,7 +180,7 @@ export PYTHONPATH=src                                # PowerShell: $env:PYTHONPA
 
 python -m cmf_delinquency.pipeline --offline         # usa el panel versionado, ~30 s
 python -m cmf_delinquency.pipeline                   # descarga primero los 128 archivos y las series macro
-pytest                                               # 77 tests, sin red
+pytest                                               # 90 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -194,8 +196,10 @@ src/cmf_delinquency/
   banks.py      pronóstico por banco: modelos agrupados entre bancos, selección de bancos
   forecast.py   backtest con origen móvil, intervalos por bootstrap de bloques
   plots.py      figuras
+  site.py       genera la página de GitHub Pages (docs/index.html) desde el panel y results.json
   pipeline.py   de punta a punta
-tests/          77 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco y de no mirar hacia adelante
+docs/           el sitio de GitHub Pages (generado; no se edita a mano)
+tests/          90 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página y de no mirar hacia adelante
 ```
 
 ## Licencia

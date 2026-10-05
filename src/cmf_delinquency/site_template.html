@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morosidad bancaria en Chile</title>
+<meta name="description" content="Panel mensual de la morosidad bancaria chilena (CMF, 2016-2026): carteras, bancos y un backtest honesto de pronóstico.">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #fcfcfb; --surface: #ffffff; --ink: #0b0b0b; --ink-2: #52514e; --line: #e4e3df; --band: #efeeea;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --accent: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #1a1a19; --surface: #222221; --ink: #ffffff; --ink-2: #c3c2b7; --line: #36352f; --band: #262624;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --accent: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #1a1a19; --surface: #222221; --ink: #ffffff; --ink-2: #c3c2b7; --line: #36352f; --band: #262624;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --accent: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px 96px; }
+  .topbar { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 0 0; }
+  .topbar button, .chips button, select {
+    font: inherit; font-size: 0.85rem; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; cursor: pointer;
+  }
+  .topbar button:hover, .chips button:hover, select:hover { border-color: var(--accent); }
+  .topbar button:focus-visible, .chips button:focus-visible, select:focus-visible, svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  header { padding: 40px 0 30px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .lede { font-size: clamp(1rem, 2.4vw, 1.15rem); color: var(--ink-2); margin: 0 0 22px; max-width: 66ch; }
+  .lede strong { color: var(--ink); }
+  .links a {
+    display: inline-block; margin: 0 8px 8px 0; padding: 8px 14px; border: 1px solid var(--line); border-radius: 7px;
+    text-decoration: none; color: var(--ink); background: var(--surface); font-size: 0.9rem;
+  }
+  .links a:hover { border-color: var(--accent); }
+  h2 { font-size: 1.35rem; margin: 52px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); letter-spacing: -0.01em; }
+  h3 { font-size: 1.02rem; margin: 28px 0 6px; color: var(--ink-2); font-weight: 600; }
+  p { margin: 0 0 14px; max-width: 72ch; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 8px 0 8px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .tile .n { font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; }
+  .chartcard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 10px; margin: 18px 0; position: relative; }
+  .chartcard h3 { margin: 0 0 4px; color: var(--ink); font-size: 1rem; }
+  .chartcard .sub { font-size: 0.85rem; color: var(--ink-2); margin: 0 0 10px; max-width: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 6px; align-items: center; }
+  .chips button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .chips label { font-size: 0.85rem; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .plot { position: relative; }
+  .plot svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .tip {
+    position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 0.82rem; line-height: 1.45; box-shadow: 0 4px 14px rgba(0,0,0,.14); z-index: 5;
+    min-width: 150px; transform: translate(-50%, 0); white-space: nowrap;
+  }
+  .tip b { font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; margin-top: 6px; color: var(--ink); }
+  .tablewrap { overflow: auto; max-height: 340px; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink-2); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+  .fine { font-size: 0.85rem; color: var(--ink-2); }
+  .bad { color: var(--s2); font-weight: 650; }
+  figure { margin: 22px 0; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+  figcaption { font-size: 0.85rem; color: var(--ink-2); margin-top: 8px; max-width: 72ch; }
+  ul { padding-left: 20px; max-width: 72ch; }
+  li { margin: 6px 0; }
+  footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 0.85rem; }
+  footer a { color: var(--ink-2); }
+  @media (max-width: 560px) { .wrap { padding: 0 12px 72px; } .tile .n { font-size: 1.7rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button id="lang" type="button" aria-label="Language">EN</button>
+    <button id="theme" type="button" aria-label="Theme" data-i18n="theme">Tema</button>
+  </div>
+
+  <header>
+    <h1 data-i18n="h1">Morosidad bancaria en Chile, 2016–2026</h1>
+    <p class="lede" data-i18n="lede"></p>
+    <div class="links">
+      <a href="https://github.com/Rxyxs/chile-banking-delinquency-cmf" data-i18n="link_repo">Código en GitHub</a>
+      <a href="https://github.com/Rxyxs/chile-banking-delinquency-cmf#readme" data-i18n="link_readme">README completo</a>
+      <a href="https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-28914.html" data-i18n="link_source">Fuente: CMF</a>
+    </div>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2 data-i18n="h_system">1. La mora del sistema, por cartera</h2>
+  <p data-i18n="p_system"></p>
+  <div class="chartcard">
+    <h3 data-i18n="c1_title">Mora a 90+ días, % de las colocaciones</h3>
+    <p class="sub" data-i18n="c1_sub">Pasa el cursor (o usa las flechas) para leer cada mes. La franja gris es el alivio del COVID.</p>
+    <div class="chips" id="chips1" role="group" aria-label="Carteras"></div>
+    <div class="plot" id="plot1"></div>
+    <div class="legend" id="legend1"></div>
+    <div class="chips"><button type="button" id="tbl1" aria-pressed="false" data-i18n="view_table">Ver como tabla</button></div>
+    <div class="tablewrap" id="table1" hidden></div>
+  </div>
+  <ul id="findings"></ul>
+
+  <h2 data-i18n="h_bank">2. Explora un banco</h2>
+  <p data-i18n="p_bank"></p>
+  <div class="chartcard">
+    <div class="chips">
+      <label><span data-i18n="sel_bank">Banco</span> <select id="bankSel"></select></label>
+      <label><span data-i18n="sel_port">Cartera</span> <select id="portSel"></select></label>
+    </div>
+    <div class="plot" id="plot2"></div>
+    <div class="legend" id="legend2"></div>
+    <p class="fine" id="bankNote" style="margin-top:8px"></p>
+  </div>
+
+  <h2 data-i18n="h_fore">3. Pronosticar: lo que no funcionó</h2>
+  <p data-i18n="p_fore"></p>
+
+  <h3 data-i18n="t1_title">El sistema: ¿le gana algún modelo al «igual que hoy»?</h3>
+  <p class="fine" data-i18n="t1_note"></p>
+  <div class="tablewrap"><table id="tSystem"></table></div>
+
+  <h3 data-i18n="t2_title">Agregar indicadores macro</h3>
+  <p class="fine" data-i18n="t2_note"></p>
+  <div class="tablewrap"><table id="tMacro"></table></div>
+  <figure><img src="figures/07_macro_aporte.png" alt="" loading="lazy"><figcaption data-i18n="f_macro"></figcaption></figure>
+
+  <h3 data-i18n="t3_title">Bancos individuales</h3>
+  <p class="fine" data-i18n="t3_note"></p>
+  <div class="tablewrap"><table id="tBanks"></table></div>
+  <figure><img src="figures/08_bancos_modelos.png" alt="" loading="lazy"><figcaption data-i18n="f_banks"></figcaption></figure>
+
+  <h2 data-i18n="h_how">4. Cómo está hecho</h2>
+  <ul id="howList"></ul>
+
+  <footer>
+    <span data-i18n="foot"></span>
+    <a href="https://github.com/Rxyxs/chile-banking-delinquency-cmf">github.com/Rxyxs/chile-banking-delinquency-cmf</a>
+  </footer>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const $ = (id) => document.getElementById(id);
+
+/* ------------------------------------------------------------------ textos */
+const I18N = {
+  es: {
+    theme: "Tema",
+    h1: "Morosidad bancaria en Chile, 2016–2026",
+    lede: "La CMF publica la morosidad de cada banco en <strong>128 archivos Excel mensuales con tres formatos distintos</strong>. Los unifiqué en un panel y lo uso para responder qué pasó con el crédito, quién explica el alza reciente y qué se puede (y qué no) pronosticar.",
+    link_repo: "Código en GitHub", link_readme: "README completo", link_source: "Fuente: CMF",
+    n_covid_l: "mora del sistema en feb-2020", n_min_l: "mínimo, en dic-2021 (alivio del COVID)", n_last_l: "mora en ", n_within_l: "de alza dentro de los bancos (el alza total desde el mínimo es +{tot} pp)",
+    h_system: "1. La mora del sistema, por cartera",
+    p_system: "Durante el COVID los retiros de fondos de pensiones, los subsidios y las postergaciones de cuotas llevaron la mora a mínimos históricos. Desde 2022 volvió a subir y hoy supera su nivel previo a la pandemia.",
+    c1_title: "Mora a 90+ días, % de las colocaciones", c1_sub: "Pasa el cursor (o usa las flechas) para leer cada mes. La franja gris es el alivio del COVID.",
+    view_table: "Ver como tabla", view_chart: "Ver como gráfico",
+    reg_pre: "Pre-COVID", reg_covid: "Alivio COVID", reg_norm: "Normalización",
+    imputed: "dato del sistema no publicado por la CMF, interpolado",
+    p_total: "Total", p_comercial: "Comercial", p_personas: "Personas", p_consumo: "Consumo", p_vivienda: "Vivienda", month: "Mes",
+    f1: "El sistema pasó de <b>{feb}%</b> en febrero de 2020 a un mínimo de <b>{min}%</b> en diciembre de 2021, y está en <b>{last}%</b> en {lastm}.",
+    f2: "El crédito a hogares osciló mucho más que el comercial: la mora hipotecaria cayó {vi} pp y la comercial solo {co} pp.",
+    f3: "Descomponiendo el alza desde el mínimo (+{tot} pp): <b>{within} pp es deterioro dentro de cada banco</b> y {mix} pp es cambio de mezcla. No es que los créditos se hayan movido hacia bancos más morosos.",
+    h_bank: "2. Explora un banco",
+    p_bank: "Elige un banco y una cartera para compararlo con el sistema. Las entidades que se fusionaron o cambiaron de nombre aparecen como una sola serie; los meses sin dato quedan en blanco.",
+    sel_bank: "Banco", sel_port: "Cartera",
+    bank_note: "Hoy está {gap} pp {dir} el sistema en esta cartera.", above: "sobre", below: "bajo", same: "al nivel de",
+    bank_none: "Sin dato reciente para esta cartera.",
+    sys_label: "Sistema bancario",
+    h_fore: "3. Pronosticar: lo que no funcionó",
+    p_fore: "Un backtest honesto reporta lo negativo. Cada cifra es el error absoluto medio relativo al pronóstico ingenuo («igual que hoy»): <b>menos de 1 es mejor</b>. Entre corchetes, el intervalo de 95% por bootstrap de bloques. Está en rojo lo que el intervalo deja claramente peor que el ingenuo.",
+    t1_title: "El sistema: ¿le gana algún modelo al «igual que hoy»?",
+    t1_note: "{n} orígenes a un mes. Solo ARIMA a 3 meses tiene un intervalo que excluye el 1.",
+    t2_title: "Agregar indicadores macro",
+    t2_note: "Comparado con el mismo modelo sin macro (solo momentum). Desempleo, tasa de política monetaria e IMACEC. Agregarlos empeora el pronóstico.",
+    t3_title: "Bancos individuales",
+    t3_note: "{nb} bancos con historia y tamaño suficientes, {n} orígenes a un mes. A nivel de banco la mora se parece a un paseo aleatorio.",
+    col_h: "Horizonte", h1m: "1 mes", h3m: "3 meses", h6m: "6 meses", h12m: "12 meses",
+    m_arima_111: "ARIMA(1,1,1)", m_ets_damped: "ETS amortiguado", m_drift: "Deriva (24 m)",
+    m_unemp: "Momentum + desempleo", m_macro: "Momentum + desempleo, TPM e IMACEC",
+    m_pgap: "Agrupado: momentum + brecha", m_psys: "Agrupado: + momentum del sistema", m_ets_bank: "ETS por banco",
+    f_macro: "El aporte de los indicadores macro frente al modelo sin ellos. Por encima de 1 empeora.",
+    f_banks: "Los modelos agrupados entre bancos contra el ingenuo, por horizonte.",
+    h_how: "4. Cómo está hecho",
+    how: [
+      "<b>Tres formatos de archivo.</b> El parser detecta el formato y falla en vez de adivinar si los encabezados no coinciden.",
+      "<b>Un hueco real en la fuente.</b> En julio de 2023 la CMF dejó vacía la fila del sistema; ese único mes se interpola y se marca.",
+      "<b>Sin mirar al futuro.</b> Cada pronóstico entrena solo con lo que se conocía en su origen, y hay tests que lo verifican.",
+      "<b>Límites.</b> La mora no es pérdida; la descomposición dice dónde ocurrió el alza, no por qué; los indicadores macro vienen de un agregador de terceros."
+    ],
+    foot: "Datos: Comisión para el Mercado Financiero (CMF). Código MIT. "
+  },
+  en: {
+    theme: "Theme",
+    h1: "Chilean bank delinquency, 2016–2026",
+    lede: "The CMF publishes each bank's delinquency in <strong>128 monthly Excel files with three different layouts</strong>. I turned them into one panel and use it to ask what happened to credit, who explains the recent rise, and what can (and cannot) be forecast.",
+    link_repo: "Code on GitHub", link_readme: "Full README", link_source: "Source: CMF",
+    n_covid_l: "system arrears in Feb 2020", n_min_l: "minimum, in Dec 2021 (COVID relief)", n_last_l: "arrears in ", n_within_l: "of rise inside banks (the total rise since the minimum is +{tot} pp)",
+    h_system: "1. System arrears, by portfolio",
+    p_system: "During COVID, pension withdrawals, subsidies and payment holidays pushed arrears to record lows. Since 2022 they have climbed back and now sit above their pre-pandemic level.",
+    c1_title: "Arrears 90+ days, % of loans", c1_sub: "Hover (or use the arrow keys) to read each month. The grey band is the COVID relief period.",
+    view_table: "View as table", view_chart: "View as chart",
+    reg_pre: "Pre-COVID", reg_covid: "COVID relief", reg_norm: "Normalisation",
+    imputed: "system figure not published by the CMF, interpolated",
+    p_total: "Total", p_comercial: "Commercial", p_personas: "Personas", p_consumo: "Consumer", p_vivienda: "Mortgage", month: "Month",
+    f1: "The system went from <b>{feb}%</b> in February 2020 to a minimum of <b>{min}%</b> in December 2021, and is at <b>{last}%</b> in {lastm}.",
+    f2: "Household credit swung much more than commercial credit: mortgage arrears fell {vi} pp and commercial only {co} pp.",
+    f3: "Decomposing the rise since the minimum (+{tot} pp): <b>{within} pp is deterioration inside each bank</b> and {mix} pp is mix change. Loans did not move toward more delinquent banks.",
+    h_bank: "2. Explore a bank",
+    p_bank: "Pick a bank and a portfolio to compare it with the system. Entities that merged or were renamed appear as one series; months without data are left blank.",
+    sel_bank: "Bank", sel_port: "Portfolio",
+    bank_note: "Today it sits {gap} pp {dir} the system in this portfolio.", above: "above", below: "below", same: "level with",
+    bank_none: "No recent data for this portfolio.",
+    sys_label: "Banking system",
+    h_fore: "3. Forecasting: what did not work",
+    p_fore: "An honest backtest reports the negatives. Every figure is the mean absolute error relative to the naive forecast (“same as today”): <b>below 1 is better</b>. In brackets, the 95% block-bootstrap interval. Red marks what the interval leaves clearly worse than naive.",
+    t1_title: "The system: does any model beat “same as today”?",
+    t1_note: "{n} origins at one month. Only ARIMA at 3 months has an interval that excludes 1.",
+    t2_title: "Adding macro indicators",
+    t2_note: "Compared with the same model without macro (momentum only). Unemployment, policy rate and IMACEC. Adding them makes the forecast worse.",
+    t3_title: "Individual banks",
+    t3_note: "{nb} banks with enough history and size, {n} origins at one month. At the bank level, arrears behave like a random walk.",
+    col_h: "Horizon", h1m: "1 month", h3m: "3 months", h6m: "6 months", h12m: "12 months",
+    m_arima_111: "ARIMA(1,1,1)", m_ets_damped: "Damped ETS", m_drift: "Drift (24 m)",
+    m_unemp: "Momentum + unemployment", m_macro: "Momentum + unemployment, policy rate and IMACEC",
+    m_pgap: "Pooled: momentum + gap", m_psys: "Pooled: + system momentum", m_ets_bank: "ETS per bank",
+    f_macro: "What the macro indicators add against the same model without them. Above 1 is worse.",
+    f_banks: "Models pooled across banks against the naive forecast, by horizon.",
+    h_how: "4. How it is built",
+    how: [
+      "<b>Three file layouts.</b> The parser detects the layout and fails instead of guessing when headers do not match.",
+      "<b>A real hole in the source.</b> In July 2023 the CMF left the system row empty; that single month is interpolated and flagged.",
+      "<b>No look-ahead.</b> Each forecast trains only on what was known at its origin, and tests verify it.",
+      "<b>Limits.</b> Arrears are not losses; the decomposition says where the rise happened, not why; the macro indicators come from a third-party aggregator."
+    ],
+    foot: "Data: Comisión para el Mercado Financiero (CMF). MIT code. "
+  }
+};
+
+let lang = "es";
+try { lang = localStorage.getItem("lang") || (navigator.language || "es").slice(0, 2); } catch (e) {}
+if (!I18N[lang]) lang = "es";
+const t = (k) => I18N[lang][k];
+const num = (v, d = 2) => v.toLocaleString(lang === "es" ? "es-CL" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => (k in o ? o[k] : ""));
+
+/* ------------------------------------------------------------------- datos */
+const M = DATA.months;
+const PORTS = ["total", "comercial", "consumo", "vivienda", "personas"];
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const ym = (s) => { const [y, m] = s.split("-"); return new Date(+y, +m - 1, 1).toLocaleDateString(lang === "es" ? "es-CL" : "en-US", { month: "short", year: "numeric" }); };
+
+/* -------------------------------------------------------------- gráficos SVG */
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+  // Desde el multiplo de `step` bajo el minimo hasta el primero que cubre el maximo: el eje debe
+  // contener todos los datos (antes se cortaba en el ultimo tick menor que el maximo).
+  const out = [];
+  let v = Math.floor(lo / step) * step;
+  for (;;) {
+    out.push(+v.toFixed(10));
+    if (v >= hi - 1e-9) break;
+    v += step;
+  }
+  return out;
+}
+const tickDecimals = (v) => (Math.abs(v * 10 - Math.round(v * 10)) < 1e-6 ? (Math.abs(v - Math.round(v)) < 1e-6 ? 0 : 1) : 2);
+
+function lineChart(host, spec) {
+  const { series, regimes, imputedIdx, unit } = spec;
+  host.innerHTML = "";
+  // El viewBox mide lo mismo que el contenedor: asi 1 unidad = 1 px y la tipografia no se encoge en
+  // pantallas angostas (con un viewBox fijo de 900 los ejes quedaban de ~4 px en un telefono).
+  const W = Math.max(300, Math.round(host.clientWidth) || 900), H = W < 560 ? 300 : 380, m = { l: 42, r: 12, t: 26, b: 30 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, n = M.length;
+  const vals = series.flatMap((s) => s.values.filter((v) => v != null));
+  const ticks = niceTicks(Math.min(...vals) - 0.05, Math.max(...vals) + 0.05, 5);
+  const lo = ticks[0], hi = ticks[ticks.length - 1];
+  const X = (i) => m.l + (i / (n - 1)) * iw, Y = (v) => m.t + ih - ((v - lo) / (hi - lo)) * ih;
+  const ns = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent, text) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; (parent || svg).appendChild(e); return e; };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", tabindex: "0", "aria-label": spec.aria }, host);
+  svg.removeAttribute("class");
+  // franjas de régimen
+  (regimes || []).forEach((r, k) => {
+    const x0 = X(r.i0), x1 = X(r.i1);
+    if (k === 1) el("rect", { x: x0, y: m.t, width: x1 - x0, height: ih, fill: css("--band") });
+    if (x1 - x0 >= t(r.key).length * 6.4) el("text", { x: (x0 + x1) / 2, y: m.t - 9, "text-anchor": "middle", "font-size": 11, fill: css("--ink-2") }, null, t(r.key));
+  });
+  ticks.forEach((v) => {
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--line"), "stroke-width": 1 });
+    el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-2") }, null, num(v, tickDecimals(v)));
+  });
+  M.forEach((s, i) => { if (s.endsWith("-01") && +s.slice(0, 4) % 2 === 0) el("text", { x: X(i), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--ink-2") }, null, s.slice(0, 4)); });
+  el("text", { x: 4, y: 12, "font-size": 11, fill: css("--ink-2") }, null, unit);
+  series.forEach((s) => {
+    let d = "", open = false;
+    s.values.forEach((v, i) => { if (v == null) { open = false; return; } d += (open ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); open = true; });
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": s.width || 2, "stroke-linejoin": "round", "stroke-linecap": "round", "stroke-dasharray": s.dash || "none" });
+  });
+  (imputedIdx || []).forEach((i) => { const s = series[0]; if (s.values[i] != null) { const c = el("circle", { cx: X(i), cy: Y(s.values[i]), r: 5, fill: "none", stroke: css("--ink-2"), "stroke-width": 1.5 }); el("title", {}, c, t("imputed")); } });
+  // interacción
+  const guide = el("line", { y1: m.t, y2: m.t + ih, stroke: css("--ink-2"), "stroke-width": 1, opacity: 0 });
+  const dots = series.map((s) => el("circle", { r: 4.5, fill: s.color, stroke: css("--surface"), "stroke-width": 2, opacity: 0 }));
+  const tip = document.createElement("div"); tip.className = "tip"; tip.style.display = "none"; host.appendChild(tip);
+  let cur = n - 1;
+  function show(i) {
+    cur = Math.max(0, Math.min(n - 1, i));
+    guide.setAttribute("x1", X(cur)); guide.setAttribute("x2", X(cur)); guide.setAttribute("opacity", 1);
+    let html = `<div style="color:var(--ink-2);margin-bottom:3px">${ym(M[cur])}</div>`;
+    series.forEach((s, k) => {
+      const v = s.values[cur];
+      if (v == null) { dots[k].setAttribute("opacity", 0); html += `<div><span class="sw" style="background:${s.color}"></span>${s.label}: —</div>`; return; }
+      dots[k].setAttribute("cx", X(cur)); dots[k].setAttribute("cy", Y(v)); dots[k].setAttribute("opacity", 1);
+      html += `<div><span class="sw" style="background:${s.color}"></span>${s.label}: <b>${num(v, 2)}%</b></div>`;
+    });
+    tip.innerHTML = html; tip.style.display = "block";
+    const px = (X(cur) / W) * host.clientWidth, w = tip.offsetWidth;
+    tip.style.left = Math.max(w / 2, Math.min(host.clientWidth - w / 2, px)) + "px"; tip.style.top = "30px";
+  }
+  function hide() { guide.setAttribute("opacity", 0); dots.forEach((d) => d.setAttribute("opacity", 0)); tip.style.display = "none"; }
+  const pos = (ev) => { const r = svg.getBoundingClientRect(); return Math.round((((ev.clientX - r.left) / r.width) * W - m.l) / iw * (n - 1)); };
+  svg.addEventListener("pointermove", (ev) => show(pos(ev)));
+  svg.addEventListener("pointerdown", (ev) => show(pos(ev)));
+  svg.addEventListener("pointerleave", hide);
+  svg.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowLeft") { show(cur - 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowRight") { show(cur + 1); ev.preventDefault(); }
+    else if (ev.key === "Home") { show(0); ev.preventDefault(); }
+    else if (ev.key === "End") { show(n - 1); ev.preventDefault(); }
+    else if (ev.key === "Escape") hide();
+  });
+  svg.addEventListener("blur", hide);
+}
+
+/* ------------------------------------------------------------------- vistas */
+const state = { visible: new Set(["total", "comercial", "consumo", "vivienda"]), bank: DATA.default_bank, port: "total", table: false };
+const portColor = (p) => ({ total: css("--ink"), comercial: css("--s1"), consumo: css("--s2"), vivienda: css("--s3"), personas: css("--ink-2") }[p]);
+const regimes = () => DATA.regimes.map((r) => ({ key: r.key, i0: r.i0, i1: r.i1 }));
+
+function renderChips() {
+  const host = $("chips1"); host.innerHTML = "";
+  PORTS.forEach((p) => {
+    const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", state.visible.has(p));
+    b.innerHTML = `<span class="sw" style="background:${portColor(p)}"></span>${t("p_" + p)}`;
+    b.onclick = () => { if (state.visible.has(p) && state.visible.size === 1) return; state.visible.has(p) ? state.visible.delete(p) : state.visible.add(p); renderSystem(); };
+    host.appendChild(b);
+  });
+}
+
+function seriesTable(cols, rows, firstLabel) {
+  return `<table><thead><tr><th>${firstLabel}</th>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr><td>${r[0]}</td>${r.slice(1).map((v) => `<td>${v == null ? "—" : num(v, 2)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+function renderSystem() {
+  renderChips();
+  const ps = PORTS.filter((p) => state.visible.has(p));
+  const series = ps.map((p) => ({ key: p, label: t("p_" + p), values: DATA.system[p], color: portColor(p), width: p === "total" ? 2.6 : 1.8 }));
+  $("legend1").innerHTML = series.map((s) => `<span><span class="sw" style="background:${s.color}"></span>${s.label}</span>`).join("");
+  const tw = $("table1"), host = $("plot1"), btn = $("tbl1");
+  btn.setAttribute("aria-pressed", state.table); btn.textContent = state.table ? t("view_chart") : t("view_table");
+  tw.hidden = !state.table; host.hidden = state.table; $("legend1").hidden = state.table;
+  if (state.table) { tw.innerHTML = seriesTable(series.map((s) => s.label + " (%)"), M.map((m, i) => [ym(m), ...series.map((s) => s.values[i])]), t("month")); return; }
+  lineChart(host, { series, regimes: regimes(), imputedIdx: DATA.imputed_idx, unit: "%", aria: t("c1_title") });
+}
+
+function renderBank() {
+  const b = DATA.banks[state.bank], p = state.port;
+  const series = [
+    { key: "bank", label: state.bank, values: b[p], color: css("--s1"), width: 2.4 },
+    { key: "sys", label: t("sys_label"), values: DATA.system[p], color: css("--ink"), width: 1.8, dash: "5 4" },
+  ];
+  $("legend2").innerHTML = series.map((s) => `<span><span class="sw" style="background:${s.color}"></span>${s.label}</span>`).join("");
+  lineChart($("plot2"), { series, regimes: regimes(), imputedIdx: [], unit: "%", aria: state.bank + " — " + t("p_" + p) });
+  const lastIdx = b[p].map((v, i) => (v == null ? -1 : i)).reduce((a, c) => Math.max(a, c), -1);
+  if (lastIdx < M.length - 3) { $("bankNote").textContent = t("bank_none"); return; }
+  const gap = b[p][lastIdx] - DATA.system[p][lastIdx];
+  $("bankNote").textContent = fill(t("bank_note"), { gap: num(Math.abs(gap), 2), dir: Math.abs(gap) < 0.05 ? t("same") : gap > 0 ? t("above") : t("below") }) + " (" + ym(M[lastIdx]) + ")";
+}
+
+function ciCell(row, key) {
+  if (!row || row[key] == null) return "—";
+  const v = row[key], lo = row[key + "_lo"], hi = row[key + "_hi"];
+  const bad = lo > 1.0;
+  return `<span class="${bad ? "bad" : ""}">${num(v, 2)}</span> <span class="fine">[${num(lo, 2)}; ${num(hi, 2)}]</span>`;
+}
+
+function ciTable(host, models, rows, key) {
+  const H = [1, 3, 6, 12];
+  host.innerHTML = `<thead><tr><th>${t("col_h")}</th>${models.map((m) => `<th>${t(m[1])}</th>`).join("")}</tr></thead><tbody>${H.map((h) => `<tr><td>${t("h" + h + "m")}</td>${models.map((m) => `<td>${ciCell(rows.find((r) => r.model === m[0] && r.h === h), key)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+}
+
+function renderForecast() {
+  ciTable($("tSystem"), [["arima_111", "m_arima_111"], ["ets_damped", "m_ets_damped"], ["drift", "m_drift"]], DATA.forecast.system, "rmae");
+  ciTable($("tMacro"), [["momentum+unemployment", "m_unemp"], ["momentum+macro", "m_macro"]], DATA.forecast.macro, "vs_momentum");
+  ciTable($("tBanks"), [["ets_damped", "m_ets_bank"], ["pooled_gap", "m_pgap"], ["pooled_system", "m_psys"]], DATA.forecast.banks, "vs_naive");
+}
+
+function renderStatic() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((e) => { const v = t(e.dataset.i18n); if (typeof v === "string") e.innerHTML = fill(v, DATA.fill); });
+  const k = DATA.key, lastm = ym(k.last_month);
+  $("tiles").innerHTML = [
+    [num(k.feb2020, 2) + "%", t("n_covid_l")], [num(k.min, 2) + "%", t("n_min_l")],
+    [num(k.last, 2) + "%", t("n_last_l") + lastm], ["+" + num(k.within, 2) + " pp", fill(t("n_within_l"), { tot: num(k.rise, 2) })],
+  ].map((x) => `<div class="tile"><div class="n">${x[0]}</div><div class="l">${x[1]}</div></div>`).join("");
+  const f = { feb: num(k.feb2020, 2), min: num(k.min, 2), last: num(k.last, 2), lastm, vi: num(Math.abs(k.fall_vivienda), 2), co: num(Math.abs(k.fall_comercial), 2), tot: num(k.rise, 2), within: num(k.within, 2), mix: num(k.mix, 2) };
+  $("findings").innerHTML = ["f1", "f2", "f3"].map((id) => `<li>${fill(t(id), f)}</li>`).join("");
+  $("howList").innerHTML = t("how").map((x) => `<li>${x}</li>`).join("");
+  // El texto alternativo se toma del pie de figura, que recien aqui esta traducido y rellenado.
+  document.querySelectorAll("figure img").forEach((img) => { img.alt = img.nextElementSibling ? img.nextElementSibling.textContent : ""; });
+  $("lang").textContent = lang === "es" ? "EN" : "ES";
+  document.title = t("h1");
+}
+
+function renderAll() { renderStatic(); renderSystem(); renderBank(); renderForecast(); }
+
+/* ------------------------------------------------------------------ eventos */
+function fillSelectors() {
+  const bs = $("bankSel"), ps = $("portSel");
+  bs.innerHTML = DATA.bank_names.map((b) => `<option value="${b}">${b}</option>`).join(""); bs.value = state.bank;
+  ps.innerHTML = PORTS.map((p) => `<option value="${p}">${t("p_" + p)}</option>`).join(""); ps.value = state.port;
+  bs.onchange = () => { state.bank = bs.value; renderBank(); };
+  ps.onchange = () => { state.port = ps.value; renderBank(); };
+}
+$("lang").onclick = () => { lang = lang === "es" ? "en" : "es"; try { localStorage.setItem("lang", lang); } catch (e) {} fillSelectors(); renderAll(); };
+$("tbl1").onclick = () => { state.table = !state.table; renderSystem(); };
+$("theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch (e) {}
+  renderAll();
+};
+try { const th = localStorage.getItem("theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
+{ const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") document.documentElement.dataset.theme = q; }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderSystem(); renderBank(); }, 150); });
+
+fillSelectors();
+renderAll();
+</script>
+</body>
+</html>

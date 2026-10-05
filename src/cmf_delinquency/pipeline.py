@@ -20,6 +20,7 @@ from . import macro as M
 from . import plots
 from .download import download_all
 from .parse import build_panel
+from .site import build_site
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw"
@@ -211,6 +212,7 @@ def run(offline: bool = False) -> dict:
     }
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     RESULTS.write_text(json.dumps(_round(results), indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+    build_site()
     return results
 
 
