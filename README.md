@@ -8,6 +8,8 @@
 
 ![System delinquency by portfolio](reports/figures/01_mora_sistema.png)
 
+**[Interactive page](https://rxyxs.github.io/chile-banking-delinquency-cmf/)**: explore any bank against the system and read the forecasting results.
+
 ## Why this project
 
 Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer five questions an analyst actually gets asked:
@@ -178,7 +180,7 @@ export PYTHONPATH=src                                # Windows PowerShell: $env:
 
 python -m cmf_delinquency.pipeline --offline         # uses the committed panel, ~30 s
 python -m cmf_delinquency.pipeline                   # downloads the 128 files and the macro series first
-pytest                                               # 77 tests, no network
+pytest                                               # 90 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -194,8 +196,10 @@ src/cmf_delinquency/
   banks.py      per-bank forecasts: pooled models across banks, bank selection
   forecast.py   rolling-origin backtest, block-bootstrap intervals
   plots.py      figures
+  site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
-tests/          77 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank and no-look-ahead checks
+docs/           the GitHub Pages site (generated; do not edit by hand)
+tests/          90 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page and no-look-ahead checks
 ```
 
 ## License
