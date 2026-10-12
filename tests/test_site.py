@@ -112,3 +112,17 @@ def test_the_page_has_no_external_scripts_or_styles():
 def test_the_page_is_accessible_by_keyboard_and_has_a_table_view():
     html = site.TEMPLATE.read_text(encoding="utf-8")
     assert 'tabindex' in html and "ArrowLeft" in html and "view_table" in html
+
+
+def test_stress_and_ml_sections_come_from_results(built):
+    _, html, data = built
+    results = json.loads((ROOT / "reports" / "results.json").read_text(encoding="utf-8"))
+    for portfolio, row in results["estres"]["validacion_condicional"].items():
+        page = next(r for r in data["stress"]["validation"] if r["portfolio"] == portfolio)
+        assert page["rmae"] == round(row["rmae"], 2)
+    assert len(data["stress"]["banks"]) == len(results["estres"]["bancos_consumo_tpm"]["bancos"])
+    assert {(r["portfolio"], r["model"], r["h"]) for r in data["ml"]["backtest"]} == {
+        (p, m, h) for p in ("consumo", "total") for m in ("ols_agrupado", "lightgbm") for h in (3, 6)}
+    for fig in ("10_estres_escenarios.png", "11_estres_validacion.png", "12_estres_bancos_tpm.png",
+                "shap_summary.png", "13_shap_local.png"):
+        assert f"figures/{fig}" in html

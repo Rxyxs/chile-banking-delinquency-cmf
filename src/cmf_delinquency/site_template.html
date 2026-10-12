@@ -147,7 +147,23 @@
   <div class="tablewrap"><table id="tBanks"></table></div>
   <figure><img src="figures/08_bancos_modelos.png" alt="" loading="lazy"><figcaption data-i18n="f_banks"></figcaption></figure>
 
-  <h2 data-i18n="h_how">4. Cómo está hecho</h2>
+  <h2 data-i18n="h_stress">4. Prueba de tensión</h2>
+  <p data-i18n="p_stress"></p>
+  <div class="tablewrap"><table id="tStress"></table></div>
+  <figure><img src="figures/11_estres_validacion.png" alt="" loading="lazy"><figcaption data-i18n="f_s11"></figcaption></figure>
+  <figure><img src="figures/10_estres_escenarios.png" alt="" loading="lazy"><figcaption data-i18n="f_s10"></figcaption></figure>
+  <h3 data-i18n="s_banks_title">¿Qué bancos son más sensibles a la tasa?</h3>
+  <p class="fine" data-i18n="s_banks_note"></p>
+  <figure><img src="figures/12_estres_bancos_tpm.png" alt="" loading="lazy"><figcaption data-i18n="f_s12"></figcaption></figure>
+  <div class="tablewrap" style="max-height:none"><table id="tStressBanks"></table></div>
+
+  <h2 data-i18n="h_ml">5. Machine learning y SHAP</h2>
+  <p data-i18n="p_ml"></p>
+  <div class="tablewrap"><table id="tML"></table></div>
+  <figure><img src="figures/shap_summary.png" alt="" loading="lazy"><figcaption data-i18n="f_shap"></figcaption></figure>
+  <figure><img src="figures/13_shap_local.png" alt="" loading="lazy"><figcaption data-i18n="f_shap_local"></figcaption></figure>
+
+  <h2 data-i18n="h_how">6. Cómo está hecho</h2>
   <ul id="howList"></ul>
 
   <footer>
@@ -200,7 +216,21 @@ const I18N = {
     m_pgap: "Agrupado: momentum + brecha", m_psys: "Agrupado: + momentum del sistema", m_ets_bank: "ETS por banco",
     f_macro: "El aporte de los indicadores macro frente al modelo sin ellos. Por encima de 1 empeora.",
     f_banks: "Los modelos agrupados entre bancos contra el ingenuo, por horizonte.",
-    h_how: "4. Cómo está hecho",
+    h_stress: "4. Prueba de tensión",
+    p_stress: "Una pregunta condicional: <i>si</i> la TPM, el desempleo y el IMACEC se movieran así, ¿dónde quedaría la mora? Un modelo satélite por cartera (sin la ventana de alivio COVID, rezago elegido con datos pasados y factores con signo económico equivocado eliminados), validado fuera de muestra entre 2023 y 2026 con la macro efectivamente observada. Cifras: error absoluto medio relativo a «la mora no cambia» (<b>menos de 1 es mejor</b>).",
+    col_port: "Cartera", col_rmae: "Error relativo", col_lag: "Rezago (meses)", col_n: "Meses evaluados",
+    f_s11: "Barras: rezago elegido sin mirar el futuro. Puntos grises: cada rezago fijo; elegir el mejor después de verlos sería hacer trampa.",
+    f_s10: "Mora media a 12 meses y banda P5–P95 por escenario y cartera (Monte Carlo, 10.000 sorteos).",
+    s_banks_title: "¿Qué bancos son más sensibles a la tasa?",
+    s_banks_note: "La mora de consumo sube {b_cons} pp por cada pp de TPM en el sistema, pero la sensibilidad varía mucho entre bancos (Q de Cochran = {q} con {q_df} gl). ¿La explica la composición de la cartera (Reporte Financiero Mensual de la CMF)? Solo débilmente: Spearman {rho_c} con el peso de consumo (p = {p_c}) y {rho_t} con el peso de tarjetas (p = {p_t}). BancoEstado y BCI son muy sensibles con poco consumo. Con 10 bancos no se puede atribuir una causa.",
+    f_s12: "Sensibilidad de la mora de consumo de cada banco a la TPM, con IC 95% (errores Newey-West).",
+    col_bank: "Banco", col_beta: "pp por +100 pb de TPM", col_share: "Consumo / colocaciones",
+    h_ml: "5. Machine learning y SHAP",
+    p_ml: "LightGBM pronostica el cambio de la mora de cada banco a 3 y 6 meses con su propia dinámica, la del sistema y la macro conocida en cada mes. Se reentrena en cada origen desde 2021 solo con desenlaces ya conocidos y se compara con «sin cambio» y con una regresión lineal agrupada. <b>Ninguno le gana al ingenuo</b>: la mora por banco sigue pareciéndose a un paseo aleatorio.",
+    m_lgbm: "LightGBM", m_ols: "Lineal agrupado", c_consumo: "Consumo", c_total: "Total",
+    f_shap: "SHAP global: cada punto es un banco-mes. Que el nivel de la TPM sea lo más importante es una alerta de auditoría: el modelo lo usa como reloj del régimen, no como causa, y por eso no generaliza.",
+    f_shap_local: "SHAP local, {shap_bank} en {shap_date}: valor base + aportes = predicción de {shap_pred} pp a 6 meses (aporte de la TPM: {shap_tpm} pp). La suma es exacta (error ≤ {shap_err}). Explica el modelo, no la realidad.",
+    h_how: "6. Cómo está hecho",
     how: [
       "<b>Tres formatos de archivo.</b> El parser detecta el formato y falla en vez de adivinar si los encabezados no coinciden.",
       "<b>Un hueco real en la fuente.</b> En julio de 2023 la CMF dejó vacía la fila del sistema; ese único mes se interpola y se marca.",
@@ -245,7 +275,21 @@ const I18N = {
     m_pgap: "Pooled: momentum + gap", m_psys: "Pooled: + system momentum", m_ets_bank: "ETS per bank",
     f_macro: "What the macro indicators add against the same model without them. Above 1 is worse.",
     f_banks: "Models pooled across banks against the naive forecast, by horizon.",
-    h_how: "4. How it is built",
+    h_stress: "4. Stress test",
+    p_stress: "A conditional question: <i>if</i> the policy rate, unemployment and IMACEC moved like this, where would arrears go? One satellite model per portfolio (COVID relief window excluded, lag chosen from past data, wrong-signed factors dropped), validated out of sample over 2023–2026 with the macro that actually happened. Figures: mean absolute error relative to “arrears do not change” (<b>below 1 is better</b>).",
+    col_port: "Portfolio", col_rmae: "Relative error", col_lag: "Lag (months)", col_n: "Months evaluated",
+    f_s11: "Bars: lag chosen without looking ahead. Grey dots: each fixed lag; picking the best after seeing them would be cheating.",
+    f_s10: "Mean 12-month arrears and P5–P95 band by scenario and portfolio (Monte Carlo, 10,000 draws).",
+    s_banks_title: "Which banks are most rate-sensitive?",
+    s_banks_note: "System consumer arrears rise {b_cons} pp per pp of policy rate, but sensitivity varies widely across banks (Cochran's Q = {q} on {q_df} df). Does the loan mix (CMF monthly financial report) explain it? Only weakly: Spearman {rho_c} with the consumer share (p = {p_c}) and {rho_t} with the credit-card share (p = {p_t}). BancoEstado and BCI are highly sensitive with little consumer lending. With 10 banks no cause can be attributed.",
+    f_s12: "Each bank's consumer arrears sensitivity to the policy rate, with 95% CI (Newey-West errors).",
+    col_bank: "Bank", col_beta: "pp per +100 bp", col_share: "Consumer / loans",
+    h_ml: "5. Machine learning and SHAP",
+    p_ml: "LightGBM forecasts each bank's change in arrears 3 and 6 months ahead from its own dynamics, the system's, and the macro known each month. It is retrained at every origin since 2021 on outcomes already known, and compared with “no change” and a pooled linear regression. <b>Neither beats naive</b>: bank-level arrears still behave like a random walk.",
+    m_lgbm: "LightGBM", m_ols: "Pooled linear", c_consumo: "Consumer", c_total: "Total",
+    f_shap: "Global SHAP: each dot is a bank-month. The policy-rate level ranking first is an audit flag: the model uses it as a clock for the regime, not as a cause, which is why it does not generalise.",
+    f_shap_local: "Local SHAP, {shap_bank} in {shap_date}: base value + contributions = forecast of {shap_pred} pp at 6 months (policy-rate contribution: {shap_tpm} pp). The sum is exact (error ≤ {shap_err}). It explains the model, not reality.",
+    h_how: "6. How it is built",
     how: [
       "<b>Three file layouts.</b> The parser detects the layout and fails instead of guessing when headers do not match.",
       "<b>A real hole in the source.</b> In July 2023 the CMF left the system row empty; that single month is interpolated and flagged.",
@@ -433,7 +477,21 @@ function renderStatic() {
   document.title = t("h1");
 }
 
-function renderAll() { renderStatic(); renderSystem(); renderBank(); renderForecast(); }
+function renderStress() {
+  const P = ["total", "comercial", "consumo", "vivienda"];
+  $("tStress").innerHTML = `<thead><tr><th>${t("col_port")}</th><th>${t("col_rmae")}</th><th>${t("col_lag")}</th><th>${t("col_n")}</th></tr></thead><tbody>${P.map((p) => {
+    const r = DATA.stress.validation.find((x) => x.portfolio === p);
+    return `<tr><td>${t("p_" + p)}</td><td><span class="${r.rmae > 1 ? "bad" : ""}">${num(r.rmae, 2)}</span></td><td>${r.lag}</td><td>${r.n}</td></tr>`;
+  }).join("")}</tbody>`;
+  $("tStressBanks").innerHTML = `<thead><tr><th>${t("col_bank")}</th><th>${t("col_beta")}</th><th>${t("col_share")}</th></tr></thead><tbody>${DATA.stress.banks.map((r) =>
+    `<tr><td>${r.bank}</td><td>${num(r.beta, 2)} <span class="fine">[${num(r.lo, 2)}; ${num(r.hi, 2)}]</span></td><td>${r.consumo_share == null ? "—" : num(r.consumo_share, 1) + "%"}</td></tr>`).join("")}</tbody>`;
+  const models = [["ols_agrupado", "m_ols"], ["lightgbm", "m_lgbm"]];
+  const rows = DATA.ml.backtest;
+  $("tML").innerHTML = `<thead><tr><th>${t("col_port")}</th><th>${t("col_h")}</th>${models.map((m) => `<th>${t(m[1])}</th>`).join("")}</tr></thead><tbody>${["consumo", "total"].flatMap((p) => [3, 6].map((h) =>
+    `<tr><td>${t("c_" + p)}</td><td>${t("h" + h + "m")}</td>${models.map((m) => `<td>${ciCell(rows.find((r) => r.portfolio === p && r.model === m[0] && r.h === h), "rmae")}</td>`).join("")}</tr>`)).join("")}</tbody>`;
+}
+
+function renderAll() { renderStatic(); renderSystem(); renderBank(); renderForecast(); renderStress(); }
 
 /* ------------------------------------------------------------------ eventos */
 function fillSelectors() {

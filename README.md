@@ -12,13 +12,15 @@
 
 ## Why this project
 
-Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer five questions an analyst actually gets asked:
+Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer seven questions an analyst actually gets asked:
 
 1. How big was the COVID-era drop in arrears, and how much of it has come back?
 2. Is the recent rise a *system-wide* deterioration, or is it a few banks, or a shift in who lends?
 3. Can a simple model forecast next quarter's delinquency better than "same as today"?
 4. Do macro indicators (unemployment, the policy rate, IMACEC) improve those forecasts?
 5. Can an individual bank's delinquency be forecast, by borrowing strength across banks?
+6. Under a macro stress scenario, how far would arrears rise, and can that model be trusted?
+7. Does a machine-learning model do better, and what does it rely on?
 
 Everything runs from one command and every number below comes from that run.
 
@@ -36,6 +38,8 @@ Source: [CMF Chile — *Indicador de morosidad de 90 días o más individual del
 The small tidy panel is committed at [`data/panel_mora90.csv`](data/panel_mora90.csv) so tests and `--offline` runs need no network. Raw `.xlsx` files are downloaded on demand and not versioned.
 
 **Macro indicators (finding 5).** Monthly unemployment, policy rate (TPM) and IMACEC from [mindicador.cl](https://mindicador.cl), an open API that mirrors Banco Central and INE series. It is a third-party aggregator, not the official publisher, so figures can differ from the official ones or be revised later; I use the values as they stood when I downloaded them (2026-10-03), not real-time vintages. The small table is committed at [`data/macro_indicators.csv`](data/macro_indicators.csv). CPI is left out because the API only returns it up to 2025-12.
+
+**Loan mix by bank (findings 7 and 8).** Commercial, consumer (with credit cards) and mortgage loans of each bank, in MM$, from the CMF [*Reporte Financiero Mensual*](https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-28910.html), sheet "Activos Bancos 2", December 2019 to December 2025. The parser reads both the pre-2022 layout and the new accounting compendium by locating headers. The table is committed at [`data/loan_mix.csv`](data/loan_mix.csv).
 
 ### Things the files do that a naive reader would get wrong
 
@@ -161,6 +165,106 @@ Bank by bank at 6 months, two intervals for the pooled model exclude 1: Banco Co
 
 Limits: total arrears only, 10 banks, no correction for multiple comparisons, and the errors are small in absolute terms (0.09 to 0.33 pp), so an edge of 2 to 4% is a few hundredths of a percentage point.
 
+### 7. Stress test: interest rates drive consumer arrears; the data cannot say what a recession would do
+
+Finding 5 asked whether macro data help *forecast*. A stress test asks a different, conditional question: *if* rates, unemployment and activity moved like this, where would arrears go? I estimate one satellite regression per portfolio on the system series, then simulate it.
+
+```
+12-month change in arrears_t = a + b1·Δ12 TPM_{t-L} + b2·Δ12 unemployment_{t-L} + b3·IMACEC y/y_{t-L} + e_t
+```
+
+Four modelling decisions, each forced by something in the data:
+
+- **The COVID relief window (2020-03 to 2021-12) is excluded from estimation.** With it, unemployment gets the *wrong* sign (−0.18 pp of consumer arrears per pp of unemployment, t = −5.5): arrears fell while unemployment rose under deferrals, pension withdrawals and transfers. A stress scenario without those programmes should not inherit that.
+- **The lag L is chosen per portfolio** from 0, 3, 6, 9 and 12 months by adjusted R² on a common sample. My first version fixed L = 6 after looking at the data, and that inflated the out-of-sample score for consumer arrears from 0.66 to 0.56 (see below). Now the lag is re-chosen at every backtest origin using only the past.
+- **Sign restrictions.** Unemployment and IMACEC move together (correlation −0.77), and even outside COVID their separate coefficients come out with economically wrong signs. Unrestricted, the model says a recession *lowers* consumer arrears. When a factor has the wrong sign it is dropped (coefficient 0) and the model re-estimated, and the engine reports which factors it dropped.
+- **Newey-West errors (12 lags)**, because the 12-month changes overlap. The Monte Carlo draws coefficients from that covariance and resamples historical residuals (10,000 draws, fixed seed). EAD is the real implied loan book in 2026-08 (CLP 250 trillion). LGD is an assumed Beta with mean 45% (the Basel supervisory value for senior unsecured debt).
+
+| Portfolio | Lag | R² | Δ12 TPM (per pp) | IMACEC y/y (per %) | Dropped for wrong sign |
+|---|---|---|---|---|---|
+| Total | 9 | 0.57 | +0.039 (t 4.2) | −0.022 (t −4.6) | unemployment |
+| Commercial | 12 | 0.67 | +0.059 (t 10.3) | −0.009 (t −1.8) | unemployment |
+| **Consumer** | 9 | **0.80** | **+0.095 (t 9.4)** | — | unemployment, IMACEC |
+| Mortgage | 3 | 0.18 | — | −0.021 (t −1.3) | TPM (unemployment kept: +0.075, t 1.4) |
+
+**Does it work out of sample?** For each month from 2023-01 to 2026-08 I re-estimate with data up to 12 months earlier (lag and sign restrictions included), feed in the macro that actually happened, and compare with "arrears do not change". The bars show the honest score, with the lag chosen from the past. The grey dots show what each fixed lag would have scored. Picking the best dot after the fact is the leak I had.
+
+![Out-of-sample check of the stress model](reports/figures/11_estres_validacion.png)
+
+- **Consumer: 0.73** (0.26 pp against 0.36 pp, 44 months). It beats no change, though by less than the fixed-lag version suggested.
+- **Commercial: 0.85.** It also beats no change, once the wrong-signed unemployment term is gone.
+- **Total: 1.12, mortgage: 1.53.** Neither beats no change, so I read those scenarios as illustrations.
+- **The lag matters as much as the model.** Total and commercial would score 0.74 and 0.57 at a fixed 12-month lag, and consumer 0.53 at 6 months. None of those can be chosen honestly in advance.
+
+**Is the rate effect stable?** Fitting consumer arrears on pre-COVID data alone (2017–2020, when the TPM barely moved: −1 to +0.5 pp) gives +0.07 to +0.14 pp per pp, against +0.08 to +0.09 since 2022. The sign and size hold, but the precision comes almost entirely from the 2022–23 cycle.
+
+**Which banks are most exposed?** The same model, bank by bank, on the 10 banks with enough history and size:
+
+![Consumer arrears sensitivity to the policy rate by bank](reports/figures/12_estres_bancos_tpm.png)
+
+BancoEstado (+0.15 pp per 100 bp), BCI (+0.12), Scotiabank (+0.10) and Itaú (+0.09) react three to ten times more than Bice (+0.02), Consorcio (+0.01) and Security (+0.03). The hypothesis that all banks share one coefficient is rejected by a wide margin (Cochran's Q = 94 on 9 df), although Q overstates the evidence because the banks share the same cycle. **Does the loan mix explain it?** The arrears files only give percentages, so I took each bank's loan book by portfolio from a second CMF source, the *Reporte Financiero Mensual* (sheet "Activos Bancos 2", December 2019–2025, both accounting layouts). The association is positive but weak, and none of it is significant with 10 banks:
+
+| Bank trait (2019–2025 average) | Spearman with rate sensitivity | Permutation p |
+|---|---|---|
+| Consumer loans / total loans | 0.55 | 0.11 |
+| Credit cards / consumer loans | 0.52 | 0.13 |
+| Current consumer arrears | 0.48 | 0.16 |
+
+BancoEstado (7.5% consumer) and BCI (8.0%) are the most sensitive banks with *less* consumer lending than Santander (14.5%) or Banco de Chile (13.9%), so the loan mix is not the explanation. A client-income channel is plausible but untested: the CMF does not publish borrower income by bank.
+
+**Scenarios**, all as 12-month shocks. The two historical ones replay the changes actually observed in the 12 months to that date:
+
+| Scenario | TPM | Unemployment | IMACEC | Consumer arrears | Total arrears | Total vs base | Extra loss vs base |
+|---|---|---|---|---|---|---|---|
+| Base: no change | 0 bp | 0 pp | +2.0% | 2.35% → 2.45% | 2.44% → 2.59% | — | — |
+| Historical: 2022 hiking cycle | +725 bp | +0.7 pp | −1.0% | → **3.14%** [2.85, 3.47] | → 2.94% | +0.35 pp | CLP 390 bn |
+| Historical: 2016 slowdown | 0 bp | +0.3 pp | +1.2% | → 2.45% | → 2.61% | +0.02 pp | CLP 20 bn |
+| Hypothetical: hikes with recession | +300 bp | +2.0 pp | −3.0% | → 2.74% | → 2.82% | +0.23 pp | CLP 256 bn |
+
+Brackets are the 5th–95th percentiles. The base case rises about 0.15 pp because the intercept carries the sample's average upward drift, which is why effects are reported against the base.
+
+- **The hypothetical recession adds almost nothing beyond its rate hike.** For consumer credit the unemployment and activity terms were dropped, so the +2 pp unemployment shock has no effect. The data contain no recession outside COVID: the estimation sample never saw IMACEC below −2.5% or unemployment rising more than 1.2 pp in a year. That is a limit of the data, not a finding that recessions are harmless, and the engine flags out-of-range shocks (`out_of_sample_range`) and dropped factors (`factors_dropped`).
+- **Arrears × LGD × EAD is a loss on the delinquent stock, not a 12-month expected loss.** 90+ arrears are a stock ratio, not a default rate. The CLP figures show orders of magnitude only and are not a provisioning estimate.
+
+![Stress scenarios by portfolio](reports/figures/10_estres_escenarios.png)
+
+### 8. Machine learning does not beat "no change" either; SHAP shows why
+
+Findings 4 to 6 used linear and exponential-smoothing models. Could a non-linear model do better at the bank level? `models/ml_shap.py` trains a LightGBM regressor on the 10 eligible banks to forecast each bank's change in arrears 3 and 6 months ahead. It uses the bank's own dynamics (level, 3/6/12-month changes, gap to the system), the system's momentum, and the macro known in that month (publication lags applied). At every origin from 2021 it is retrained only on outcomes already known, and compared with "no change" and with a pooled linear regression on the same features. MAE relative to no change, 95% block-bootstrap interval:
+
+| Portfolio | Horizon | Pooled linear | LightGBM |
+|---|---|---|---|
+| Consumer | 3 months | 1.66 [1.30, 2.02] | 1.52 [1.34, 1.71] |
+| Consumer | 6 months | 2.31 [1.37, 3.04] | 1.61 [1.38, 1.96] |
+| Total | 3 months | 1.09 [1.02, 1.19] | 1.02 [0.97, 1.08] |
+| Total | 6 months | 1.30 [1.01, 1.55] | 1.03 [0.93, 1.13] |
+
+- **Neither model beats no change.** For consumer arrears both are clearly worse. LightGBM is less bad than the linear model because the trees cannot extrapolate. For total arrears LightGBM ties with no change.
+- **Dropping the COVID window from training does not rescue it** (consumer at 6 months: 1.85). The early origins lose most of their training data.
+
+**SHAP** (TreeExplainer) decomposes each forecast exactly: base value + one contribution per feature = forecast (the additivity error is below 1e-9, and a test checks it).
+
+![Global SHAP summary](reports/figures/shap_summary.png)
+
+The audit finding is the ranking itself: the most important feature is the **level** of the policy rate, ahead of its change. In a sample with one tightening cycle, the rate level works as a clock that tells the model which regime it is in, not as a cause, and that is consistent with the model failing out of sample. The local explanation for BancoEstado in 2026-08 shows the same thing: of a forecast of −0.19 pp at 6 months, −0.15 pp comes from the rate and −0.15 pp from the bank's own dynamics.
+
+![Local SHAP explanation for BancoEstado](reports/figures/13_shap_local.png)
+
+SHAP explains what the model does, not what drives arrears. Here its main use is to show why a model that fits well in sample should not be deployed. The full output (global importance, one decomposition per bank, the backtest and the model parameters) is in `reports/shap_explanations.json`.
+
+### Serving it: DuckDB warehouse and a REST API
+
+The same data and engine are packaged for use outside the notebook:
+
+- **`warehouse.py`** builds `warehouse/delinquency.duckdb` from the committed CSVs with layered SQL models in `src/cmf_delinquency/sql/` (staging → `dim_banco` → `fct_mora_banco_mes` → `mart_sistema_macro`). Each build replaces the tables and then runs data-quality checks (no duplicate bank-months, one system row per month, loan shares summing to 1). A test checks that the SQL version of the model's factors matches the Python one to 1e-9.
+- **`api.py`** is a FastAPI service that calibrates the engine once at start-up. Endpoints: `GET /health`, `GET /model` (coefficients), `GET /scenarios` and `POST /simulate/stress-test`. Inputs are validated (bounded shocks, valid portfolio, a feasible LGD), so a bad request returns 422 and not 500.
+- **Docker:** `docker compose up --build` serves the API on port 8000 with a health check, running as a non-root user. `docker compose --profile batch run --rm warehouse` builds the warehouse in a container.
+
+```bash
+curl -X POST localhost:8000/simulate/stress-test -H "content-type: application/json" \
+     -d '{"portfolio": "consumo", "tpm_shock_bp": 300, "unemployment_delta_pp": 1, "imacec_growth": -1}'
+```
+
 ## Limitations
 
 - **Arrears are not losses.** 90+ day delinquency says nothing about recoveries, provisions or write-offs.
@@ -169,6 +273,8 @@ Limits: total arrears only, 10 banks, no correction for multiple comparisons, an
 - **Small backtest.** 56–68 overlapping origins on one regime-shifting series. The intervals are wide and the evaluation window starts in 2021, so it mostly measures the post-COVID rebound.
 - **Entity histories are not fully comparable.** Names change in the source (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), the BBVA/Scotiabank Azul series ends in 2018-08 and Banco Security is no longer reported after 2025-10. I handle the renames I could identify in the files; I did not research the corporate transactions behind them.
 - **Macro data are not real-time vintages.** They come from a third-party aggregator and are the values available on the download date; later revisions would not be visible. The one-month publication lag I apply to unemployment and IMACEC is an assumption I did not check against the official calendars, and I only tried linear models.
+- **The stress model rests on 94 overlapping monthly observations** and one tightening-and-easing cycle, with no recession outside COVID. The lag and sign choices are themselves data-driven. The per-bank sensitivities come from the same short sample and use total consumer arrears, not loan-level data.
+- **The loan-mix test has 10 banks.** Spearman correlations on 10 points have very wide intervals, so "not significant" means "not shown", not "no effect". The loan mix uses December snapshots, not every month.
 - **The per-bank study covers 10 banks** chosen by data length and size, not all 24 entities, and it compares many intervals without correcting for it. A bank that looks predictable at one horizon is most likely noise.
 
 ## Run it
@@ -180,7 +286,10 @@ export PYTHONPATH=src                                # Windows PowerShell: $env:
 
 python -m cmf_delinquency.pipeline --offline         # uses the committed panel, ~30 s
 python -m cmf_delinquency.pipeline                   # downloads the 128 files and the macro series first
-pytest                                               # 90 tests, no network
+python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
+python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
+uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
+pytest                                               # 137 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -195,11 +304,16 @@ src/cmf_delinquency/
   macro.py      open macro indicators (mindicador.cl) and publication lags
   banks.py      per-bank forecasts: pooled models across banks, bank selection
   forecast.py   rolling-origin backtest, block-bootstrap intervals
+  stress_test.py  satellite model (lag selection, sign restrictions, HAC), Monte Carlo scenarios, nested out-of-sample check, per-bank sensitivity
+  warehouse.py  DuckDB warehouse built from the SQL models in sql/, with data-quality checks
+  api.py        FastAPI service for the stress engine
+  models/ml_shap.py  LightGBM per-bank forecasts, rolling-origin backtest, SHAP explanations
   plots.py      figures
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          90 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page and no-look-ahead checks
+tests/          137 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 
 ## License

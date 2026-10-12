@@ -78,6 +78,20 @@ def build_data(panel: pd.DataFrame, results: dict) -> dict:
     macro_rows = [_r2(r) for r in results["macro"]["backtest"] if r["model"] in ("momentum+unemployment", "momentum+macro")]
     bank_rows = [_r2(r) for r in results["bancos_pronostico"]["backtest"] if r["model"] in ("ets_damped", "pooled_gap", "pooled_system")]
 
+    stress = results["estres"]
+    validation = stress["validacion_condicional"]
+    banks_tpm = stress["bancos_consumo_tpm"]
+    spearman = {r["rasgo"]: r for r in banks_tpm["explicacion_spearman"]}
+    stress_rows = [_r2({"portfolio": p, "rmae": v["rmae"], "n": v["n"],
+                        "lag": stress["rezago_meses"][p]}) for p, v in validation.items()]
+    stress_bank_rows = [_r2({"bank": r["bank"], "beta": r["beta_tpm"], "lo": r["lo"], "hi": r["hi"],
+                      "consumo_share": 100 * r["consumo_share"] if r.get("consumo_share") is not None else None})
+                 for r in banks_tpm["bancos"]]
+    ml = results["ml"]
+    ml_rows = [_r2({"portfolio": r["cartera"], "model": r["model"], "h": r["h"], "rmae": r["rmae"], "rmae_lo": r["lo"],
+                    "rmae_hi": r["hi"]}) for r in ml["backtest"]]
+    shap_local = ml["shap"]["local_banco"]
+
     return {
         "months": months,
         "regimes": _regimes(months),
@@ -95,7 +109,20 @@ def build_data(panel: pd.DataFrame, results: dict) -> dict:
             "last_month": covid["ultimo_mes"],
         },
         "forecast": {"system": system_rows, "macro": macro_rows, "banks": bank_rows},
-        "fill": {"n": results["backtest"]["origenes_h1"], "nb": len(results["bancos_pronostico"]["bancos"])},
+        "stress": {"validation": stress_rows, "banks": stress_bank_rows},
+        "ml": {"backtest": ml_rows},
+        "fill": {
+            "n": results["backtest"]["origenes_h1"], "nb": len(results["bancos_pronostico"]["bancos"]),
+            **{f"s_{r['portfolio']}": f"{r['rmae']:.2f}" for r in stress_rows},
+            "s_n": validation["consumo"]["n"],
+            "b_cons": f"{next(f for f in stress['satelite'] if f['cartera'] == 'consumo')['d_tpm_pp']:.3f}",
+            "q": f"{banks_tpm['q_cochran']:.0f}", "q_df": banks_tpm["gl"],
+            "rho_c": f"{spearman['consumo_share']['spearman']:.2f}", "p_c": f"{spearman['consumo_share']['p_permutacion']:.2f}",
+            "rho_t": f"{spearman['tarjetas_share_consumo']['spearman']:.2f}", "p_t": f"{spearman['tarjetas_share_consumo']['p_permutacion']:.2f}",
+            "shap_bank": shap_local["bank"], "shap_date": shap_local["date"],
+            "shap_pred": f"{shap_local['prediction_pp']:+.2f}", "shap_tpm": f"{shap_local['aportes_grupo']['TPM']:+.2f}",
+            "shap_err": "1e-9" if ml["shap"]["max_error_aditividad"] < 1e-9 else f"{ml['shap']['max_error_aditividad']:.0e}",
+        },
     }
 
 

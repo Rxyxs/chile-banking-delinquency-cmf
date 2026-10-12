@@ -10,3 +10,9 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 .DS_Store
+
+# Almacen DuckDB (se reconstruye con python -m cmf_delinquency.warehouse) / DuckDB warehouse (rebuilt)
+warehouse/
+
+# Reportes Financieros Mensuales descargados / Downloaded monthly financial reports
+data/raw_rfm/
