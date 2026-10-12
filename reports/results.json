@@ -1054,6 +1054,44 @@
         "elegido": 1.5349
       }
     },
+    "robustez_consumo": {
+      "rezago": 9,
+      "con_covid": {
+        "n": 116,
+        "d_tpm_pp": 0.0887,
+        "d_unemployment_pp": -0.1549,
+        "imacec_yoy_pct": -0.0138,
+        "t_d_tpm_pp": 12.8178,
+        "t_d_unemployment_pp": -12.2746,
+        "t_imacec_yoy_pct": -1.4356
+      },
+      "pre_covid": {
+        "n": 38,
+        "d_tpm_pp": 0.1407,
+        "d_unemployment_pp": -0.0975,
+        "imacec_yoy_pct": -0.0441,
+        "t_d_tpm_pp": 3.007,
+        "t_d_unemployment_pp": -0.5918,
+        "t_imacec_yoy_pct": -2.9319,
+        "rango_d_tpm_pp": [
+          -1.0,
+          0.5
+        ]
+      },
+      "post_2021": {
+        "n": 56,
+        "d_tpm_pp": 0.0843,
+        "d_unemployment_pp": -0.0888,
+        "imacec_yoy_pct": -0.0173,
+        "t_d_tpm_pp": 9.431,
+        "t_d_unemployment_pp": -2.5219,
+        "t_imacec_yoy_pct": -2.5575,
+        "rango_d_tpm_pp": [
+          -5.5,
+          9.25
+        ]
+      }
+    },
     "validacion_por_banco": [
       {
         "mode": "dos_etapas",
@@ -1466,6 +1504,88 @@
     }
   },
   "ml": {
+    "sin_covid_en_entrenamiento": [
+      {
+        "h": 3,
+        "model": "ols_agrupado",
+        "origenes": 65,
+        "mae_naive_pp": 0.1869,
+        "rmae": 2.7617,
+        "lo": 1.7179,
+        "hi": 3.6479,
+        "cartera": "consumo"
+      },
+      {
+        "h": 3,
+        "model": "lightgbm",
+        "origenes": 65,
+        "mae_naive_pp": 0.1869,
+        "rmae": 1.6745,
+        "lo": 1.4204,
+        "hi": 1.9464,
+        "cartera": "consumo"
+      },
+      {
+        "h": 6,
+        "model": "ols_agrupado",
+        "origenes": 62,
+        "mae_naive_pp": 0.2695,
+        "rmae": 4.1411,
+        "lo": 2.2798,
+        "hi": 5.6624,
+        "cartera": "consumo"
+      },
+      {
+        "h": 6,
+        "model": "lightgbm",
+        "origenes": 62,
+        "mae_naive_pp": 0.2695,
+        "rmae": 1.8508,
+        "lo": 1.6017,
+        "hi": 2.1964,
+        "cartera": "consumo"
+      },
+      {
+        "h": 3,
+        "model": "ols_agrupado",
+        "origenes": 65,
+        "mae_naive_pp": 0.1624,
+        "rmae": 1.8927,
+        "lo": 1.3518,
+        "hi": 2.428,
+        "cartera": "total"
+      },
+      {
+        "h": 3,
+        "model": "lightgbm",
+        "origenes": 65,
+        "mae_naive_pp": 0.1624,
+        "rmae": 1.0872,
+        "lo": 1.0191,
+        "hi": 1.1524,
+        "cartera": "total"
+      },
+      {
+        "h": 6,
+        "model": "ols_agrupado",
+        "origenes": 62,
+        "mae_naive_pp": 0.2358,
+        "rmae": 2.0923,
+        "lo": 1.3783,
+        "hi": 2.7226,
+        "cartera": "total"
+      },
+      {
+        "h": 6,
+        "model": "lightgbm",
+        "origenes": 62,
+        "mae_naive_pp": 0.2358,
+        "rmae": 1.0401,
+        "lo": 0.9299,
+        "hi": 1.1431,
+        "cartera": "total"
+      }
+    ],
     "shap": {
       "horizonte": 6,
       "valor_base_pp": 0.0088,

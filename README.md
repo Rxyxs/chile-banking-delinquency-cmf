@@ -175,8 +175,8 @@ Finding 5 asked whether macro data help *forecast*. A stress test asks a differe
 
 Four modelling decisions, each forced by something in the data:
 
-- **The COVID relief window (2020-03 to 2021-12) is excluded from estimation.** With it, unemployment gets the *wrong* sign (−0.18 pp of consumer arrears per pp of unemployment, t = −5.5): arrears fell while unemployment rose under deferrals, pension withdrawals and transfers. A stress scenario without those programmes should not inherit that.
-- **The lag L is chosen per portfolio** from 0, 3, 6, 9 and 12 months by adjusted R² on a common sample. My first version fixed L = 6 after looking at the data, and that inflated the out-of-sample score for consumer arrears from 0.66 to 0.56 (see below). Now the lag is re-chosen at every backtest origin using only the past.
+- **The COVID relief window (2020-03 to 2021-12) is excluded from estimation.** With it, unemployment gets the *wrong* sign (−0.15 pp of consumer arrears per pp of unemployment, t = −12.3): arrears fell while unemployment rose under deferrals, pension withdrawals and transfers. A stress scenario without those programmes should not inherit that.
+- **The lag L is chosen per portfolio** from 0, 3, 6, 9 and 12 months by adjusted R² on a common sample. My first version fixed L = 6 after looking at the data. Fixing the lag in hindsight makes the model look better than it is: for consumer arrears a fixed 6-month lag scores 0.53 against the honest 0.73 (see below). Now the lag is re-chosen at every backtest origin using only the past.
 - **Sign restrictions.** Unemployment and IMACEC move together (correlation −0.77), and even outside COVID their separate coefficients come out with economically wrong signs. Unrestricted, the model says a recession *lowers* consumer arrears. When a factor has the wrong sign it is dropped (coefficient 0) and the model re-estimated, and the engine reports which factors it dropped.
 - **Newey-West errors (12 lags)**, because the 12-month changes overlap. The Monte Carlo draws coefficients from that covariance and resamples historical residuals (10,000 draws, fixed seed). EAD is the real implied loan book in 2026-08 (CLP 250 trillion). LGD is an assumed Beta with mean 45% (the Basel supervisory value for senior unsecured debt).
 
@@ -196,7 +196,7 @@ Four modelling decisions, each forced by something in the data:
 - **Total: 1.12, mortgage: 1.53.** Neither beats no change, so I read those scenarios as illustrations.
 - **The lag matters as much as the model.** Total and commercial would score 0.74 and 0.57 at a fixed 12-month lag, and consumer 0.53 at 6 months. None of those can be chosen honestly in advance.
 
-**Is the rate effect stable?** Fitting consumer arrears on pre-COVID data alone (2017–2020, when the TPM barely moved: −1 to +0.5 pp) gives +0.07 to +0.14 pp per pp, against +0.08 to +0.09 since 2022. The sign and size hold, but the precision comes almost entirely from the 2022–23 cycle.
+**Is the rate effect stable?** Fitting consumer arrears on pre-COVID data alone (2017–2020, when the TPM barely moved: −1 to +0.5 pp) gives +0.14 pp per pp (t = 3.0), against +0.08 (t = 9.4) since 2022. The sign and size hold, but the precision comes almost entirely from the 2022–23 cycle.
 
 **Which banks are most exposed?** The same model, bank by bank, on the 10 banks with enough history and size:
 
@@ -299,7 +299,7 @@ python -m cmf_delinquency.pipeline                   # downloads the 128 files a
 python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
 python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
-pytest                                               # 139 tests, no network
+pytest                                               # 0 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -322,7 +322,7 @@ src/cmf_delinquency/
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          139 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+tests/          0 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
 Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 
