@@ -212,6 +212,16 @@ BancoEstado (+0,15 pp por cada 100 pb), BCI (+0,12), Scotiabank (+0,10) e Itaú 
 
 BancoEstado (7,5% en consumo) y BCI (8,0%) son los más sensibles y tienen *menos* consumo que Santander (14,5%) o el Banco de Chile (13,9%), así que la composición de la cartera no es la explicación. Un canal por ingreso de los clientes es plausible pero no está probado: la CMF no publica el ingreso de los deudores por banco.
 
+**¿Se puede bajar la prueba de tensión a cada banco?** No con estos datos. Fuera de muestra (2023–2026, mismo protocolo), relativo a "sin cambio" y agregando los 10 bancos:
+
+| Cómo se proyecta el cambio a 12 meses de cada banco | MAE relativo |
+|---|---|
+| Modelo satélite estimado sobre el propio banco | 1,63 |
+| Dos etapas: macro → sistema (modelo validado) → banco con su propio beta al sistema | 1,22 |
+| La misma segunda etapa, con el cambio *real* del sistema (no es un pronóstico) | 0,98 |
+
+Aun conociendo perfecto la trayectoria del sistema, el beta de un banco al sistema apenas le gana a "sin cambio": la mayor parte del movimiento de un banco es propio, no del ciclo común. La excepción son los grandes prestamistas de consumo, que sí siguen al sistema (BCI 0,53, Scotiabank 0,65, Itaú 0,68 y BancoEstado 0,75 con el cambio real del sistema). Los bancos de nicho no (Consorcio 1,95, Internacional 2,29). Por eso el motor y la API reportan el estrés solo a nivel de sistema, y no publico pérdidas por banco.
+
 **Escenarios**, todos como shocks a 12 meses. Los dos históricos repiten los cambios efectivamente observados en los 12 meses hasta esa fecha:
 
 | Escenario | TPM | Desempleo | IMACEC | Mora consumo | Mora total | Total vs base | Pérdida adicional vs base |
@@ -289,7 +299,7 @@ python -m cmf_delinquency.pipeline                   # descarga primero los 128 
 python -m cmf_delinquency.stress_test               # escenarios de estrés en la terminal
 python -m cmf_delinquency.warehouse                  # almacén DuckDB en warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # API REST (o: docker compose up --build)
-pytest                                               # 137 tests, sin red
+pytest                                               # 139 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -312,7 +322,7 @@ src/cmf_delinquency/
   site.py       genera la página de GitHub Pages (docs/index.html) desde el panel y results.json
   pipeline.py   de punta a punta
 docs/           el sitio de GitHub Pages (generado; no se edita a mano)
-tests/          137 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
+tests/          139 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
 Dockerfile, docker-compose.yml   contenedor de la API (y un job batch para el almacén)
 ```
 

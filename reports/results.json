@@ -1054,6 +1054,239 @@
         "elegido": 1.5349
       }
     },
+    "validacion_por_banco": [
+      {
+        "mode": "dos_etapas",
+        "bank": "Todos",
+        "abs_err": 0.4883,
+        "abs_naive": 0.4006,
+        "rmae": 1.2188
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Todos",
+        "abs_err": 0.3923,
+        "abs_naive": 0.4006,
+        "rmae": 0.9793
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Todos",
+        "abs_err": 0.6531,
+        "abs_naive": 0.4006,
+        "rmae": 1.6301
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Bice",
+        "abs_err": 0.2405,
+        "abs_naive": 0.2912,
+        "rmae": 0.8259
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Consorcio",
+        "abs_err": 0.5079,
+        "abs_naive": 0.1786,
+        "rmae": 2.8436
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Internacional",
+        "abs_err": 0.9241,
+        "abs_naive": 0.4019,
+        "rmae": 2.2995
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Itaú Chile",
+        "abs_err": 0.4844,
+        "abs_naive": 0.5686,
+        "rmae": 0.8518
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Santander-Chile",
+        "abs_err": 0.4279,
+        "abs_naive": 0.2996,
+        "rmae": 1.4282
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco Security",
+        "abs_err": 0.2939,
+        "abs_naive": 0.2264,
+        "rmae": 1.2977
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco de Chile",
+        "abs_err": 0.4114,
+        "abs_naive": 0.2757,
+        "rmae": 1.4925
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco de Crédito e Inversiones",
+        "abs_err": 0.3113,
+        "abs_naive": 0.4852,
+        "rmae": 0.6416
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Banco del Estado de Chile",
+        "abs_err": 0.8106,
+        "abs_naive": 0.7599,
+        "rmae": 1.0668
+      },
+      {
+        "mode": "dos_etapas",
+        "bank": "Scotiabank Chile",
+        "abs_err": 0.4268,
+        "abs_naive": 0.4797,
+        "rmae": 0.8898
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Bice",
+        "abs_err": 0.2643,
+        "abs_naive": 0.2912,
+        "rmae": 0.9079
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Consorcio",
+        "abs_err": 0.3481,
+        "abs_naive": 0.1786,
+        "rmae": 1.949
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Internacional",
+        "abs_err": 0.92,
+        "abs_naive": 0.4019,
+        "rmae": 2.2894
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Itaú Chile",
+        "abs_err": 0.3889,
+        "abs_naive": 0.5686,
+        "rmae": 0.6839
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Santander-Chile",
+        "abs_err": 0.3163,
+        "abs_naive": 0.2996,
+        "rmae": 1.0557
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco Security",
+        "abs_err": 0.2513,
+        "abs_naive": 0.2264,
+        "rmae": 1.1098
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco de Chile",
+        "abs_err": 0.2637,
+        "abs_naive": 0.2757,
+        "rmae": 0.9565
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco de Crédito e Inversiones",
+        "abs_err": 0.2596,
+        "abs_naive": 0.4852,
+        "rmae": 0.5349
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Banco del Estado de Chile",
+        "abs_err": 0.569,
+        "abs_naive": 0.7599,
+        "rmae": 0.7488
+      },
+      {
+        "mode": "dos_etapas_oraculo",
+        "bank": "Scotiabank Chile",
+        "abs_err": 0.31,
+        "abs_naive": 0.4797,
+        "rmae": 0.6463
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Bice",
+        "abs_err": 0.4377,
+        "abs_naive": 0.2912,
+        "rmae": 1.5034
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Consorcio",
+        "abs_err": 0.502,
+        "abs_naive": 0.1786,
+        "rmae": 2.8103
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Internacional",
+        "abs_err": 1.2077,
+        "abs_naive": 0.4019,
+        "rmae": 3.0053
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Itaú Chile",
+        "abs_err": 0.7138,
+        "abs_naive": 0.5686,
+        "rmae": 1.2554
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Santander-Chile",
+        "abs_err": 0.6511,
+        "abs_naive": 0.2996,
+        "rmae": 2.1732
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco Security",
+        "abs_err": 0.7696,
+        "abs_naive": 0.2264,
+        "rmae": 3.3986
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco de Chile",
+        "abs_err": 0.6387,
+        "abs_naive": 0.2757,
+        "rmae": 2.3169
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco de Crédito e Inversiones",
+        "abs_err": 0.2732,
+        "abs_naive": 0.4852,
+        "rmae": 0.5631
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Banco del Estado de Chile",
+        "abs_err": 0.6565,
+        "abs_naive": 0.7599,
+        "rmae": 0.8639
+      },
+      {
+        "mode": "macro_propio",
+        "bank": "Scotiabank Chile",
+        "abs_err": 0.707,
+        "abs_naive": 0.4797,
+        "rmae": 1.4738
+      }
+    ],
     "bancos_consumo_tpm": {
       "beta_combinado": 0.0474,
       "q_cochran": 93.8588,

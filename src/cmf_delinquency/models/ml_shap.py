@@ -209,7 +209,14 @@ def shap_summary_plot(report: ShapReport, path: Path) -> Path:
     import shap
 
     plt.figure(figsize=(9, 5.5))
-    shap.summary_plot(report.values, report.features, show=False, plot_size=None, color_bar=True)
+    # summary_plot dispersa los puntos con el generador global de numpy: se fija solo mientras dibuja
+    # para que la figura sea identica entre corridas, y despues se restaura el estado anterior.
+    state = np.random.get_state()
+    np.random.seed(SEED)
+    try:
+        shap.summary_plot(report.values, report.features, show=False, plot_size=None, color_bar=True)
+    finally:
+        np.random.set_state(state)
     ax = plt.gca()
     ax.set_title(f"SHAP: qué mueve el pronóstico de la mora de consumo a {report.horizon} meses", loc="left", fontsize=12)
     ax.set_xlabel("Aporte SHAP a la predicción del cambio de mora (pp)")

@@ -223,3 +223,30 @@ def test_bank_sensitivity_and_cochran_q():
     assert table.loc["rapido", "lo"] < table.loc["rapido", "beta_tpm"] < table.loc["rapido", "hi"]
     assert het["gl"] == 1 and het["q_cochran"] > 3.84
     assert table["beta_tpm"].min() <= het["beta_combinado"] <= table["beta_tpm"].max()
+
+
+# ------------------------------------------------------------------------------- estres por banco
+def test_two_stage_oracle_recovers_a_bank_that_follows_the_system(panel, macro_real):
+    """Un banco que es exactamente 0,5 + 2 x sistema queda sin error en la etapa 2 con el cambio real."""
+    system = A.system_series(panel)["consumo"]
+    noise = np.random.default_rng(1).normal(0, 0.5, len(system))
+    wide = pd.DataFrame({"espejo": 0.5 + 2.0 * system, "ruido": system.mean() + noise}, index=system.index)
+    summary = S.bank_backtest_summary(S.bank_conditional_backtest(wide, system, macro_real, start="2025-01-01"))
+    oracle = summary[summary["mode"] == "dos_etapas_oraculo"].set_index("bank")
+    assert oracle.loc["espejo", "abs_err"] < 1e-9
+    assert oracle.loc["ruido", "rmae"] > oracle.loc["espejo", "rmae"]
+    assert set(summary["mode"]) == set(S.BANK_MODES) and "Todos" in set(summary["bank"])
+
+
+def test_bank_backtest_never_uses_the_future_of_the_bank(panel, macro_real):
+    """Alterar la mora del banco despues de t-12 cambia el valor real en t, pero no la prediccion."""
+    system = A.system_series(panel)["consumo"]
+    base = pd.DataFrame({"b": 1.0 + 0.8 * system}, index=system.index)
+    t = pd.Timestamp("2025-06-01")
+    shocked = base.copy()
+    shocked.loc[shocked.index > t - pd.DateOffset(months=12), "b"] += 5.0
+    pick = lambda e: e[(e["date"] == t) & (e["mode"] == "dos_etapas")].iloc[0]  # noqa: E731
+    a = pick(S.bank_conditional_backtest(base, system, macro_real, start="2025-06-01"))
+    b = pick(S.bank_conditional_backtest(shocked, system, macro_real, start="2025-06-01"))
+    assert a["pred"] == pytest.approx(b["pred"])
+    assert b["actual"] == pytest.approx(a["actual"] + 5.0)

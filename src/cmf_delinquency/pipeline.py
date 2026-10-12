@@ -168,6 +168,9 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame, loan_mix: pd.Data
     consumer_lag = engine.fits["consumo"].lag
     banks = B.eligible_banks(panel, "consumo")
     bank_table, heterogeneity = S.bank_sensitivity(B.wide_series(panel, banks, "consumo"), macro_raw, consumer_lag)
+    bank_bt = S.bank_backtest_summary(S.bank_conditional_backtest(B.wide_series(panel, banks, "consumo"), system["consumo"],
+                                                                  macro_raw, start=STRESS_BACKTEST_START))
+    bank_bt.to_csv(TABLES / "stress_bank_backtest.csv", index=False)
     bank_table.to_csv(TABLES / "stress_bank_tpm_consumo.csv")
     plots.fig_bank_tpm(bank_table, heterogeneity, FIGS / "12_estres_bancos_tpm.png")
     profile = B.loan_mix_profile(loan_mix)
@@ -189,6 +192,7 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame, loan_mix: pd.Data
         "escenarios": grid[keep].to_dict(orient="records"),
         "validacion_condicional": bt_rows,
         "sensibilidad_rezago": lag_rows,
+        "validacion_por_banco": bank_bt.to_dict(orient="records"),
         "bancos_consumo_tpm": {**heterogeneity, "bancos": bank_table.join(profile).reset_index().to_dict(orient="records"),
                                "explicacion_spearman": explained.reset_index().to_dict(orient="records"),
                                "meses_composicion": sorted(loan_mix["month"].unique().tolist())},
