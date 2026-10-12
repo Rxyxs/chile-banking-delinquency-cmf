@@ -1,0 +1,19 @@
+services:
+  stress-api:
+    build: .
+    image: cmf-delinquency-stress:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      # Datos montados en solo lectura: si se actualiza el panel, basta reiniciar el servicio.
+      - ./data:/app/data:ro
+    restart: unless-stopped
+
+  warehouse:
+    build: .
+    image: cmf-delinquency-stress:latest
+    command: ["python", "-m", "cmf_delinquency.warehouse"]
+    volumes:
+      - ./data:/app/data:ro
+      - ./warehouse:/app/warehouse
+    profiles: ["batch"]

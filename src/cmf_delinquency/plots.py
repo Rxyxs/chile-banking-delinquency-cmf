@@ -257,3 +257,44 @@ def fig_bank_detail(detail: pd.DataFrame, h: int, path: Path) -> Path:
     ax.set_title(f"Banco por banco a {h} meses (IC 95%)", loc="left", color=INK, fontsize=12, pad=12)
     ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.12), ncol=2)
     return _save(fig, path)
+
+
+STRESS_PORTFOLIOS = [("total", "Total", INK), ("comercial", "Comercial", SERIES["blue"]),
+                     ("consumo", "Consumo", SERIES["orange"]), ("vivienda", "Vivienda", SERIES["aqua"])]
+
+
+def fig_stress(grid: pd.DataFrame, path: Path) -> Path:
+    """Mora estresada a 12 meses por escenario y cartera: media y banda P5-P95 (Monte Carlo)."""
+    scenarios = list(dict.fromkeys(grid["scenario_name"]))
+    fig, ax = plt.subplots(figsize=(10, 4.8), facecolor=SURFACE)
+    _style(ax)
+    width = 0.18
+    for i, (key, label, color) in enumerate(STRESS_PORTFOLIOS):
+        sub = grid[grid["portfolio"] == key].set_index("scenario_name").loc[scenarios]
+        x = np.arange(len(scenarios)) + (i - 1.5) * width
+        ax.errorbar(x, sub["mean_mora_pct"], yerr=[sub["mean_mora_pct"] - sub["p05_mora_pct"], sub["p95_mora_pct"] - sub["mean_mora_pct"]],
+                    fmt="o", color=color, ecolor=color, markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5,
+                    elinewidth=1.6, capsize=0, label=label)
+        ax.scatter(x, sub["current_mora_pct"], marker="_", s=140, color=color, linewidths=1.6, zorder=1)
+    ax.set_xticks(range(len(scenarios)), [s.replace(": ", ":\n") for s in scenarios], fontsize=9)
+    ax.set_ylabel("Mora 90+ en 12 meses (%)", color=INK_2, fontsize=9)
+    ax.set_title("Prueba de tensión: mora media y banda P5–P95 por escenario (raya = mora actual)", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.18), ncol=4)
+    return _save(fig, path)
+
+
+def fig_stress_backtest(table: pd.DataFrame, path: Path) -> Path:
+    """MAE del modelo condicional fuera de muestra, relativo a 'la mora no cambia' (1 = igual)."""
+    fig, ax = plt.subplots(figsize=(8, 4.2), facecolor=SURFACE)
+    _style(ax)
+    for i, (key, label, color) in enumerate(STRESS_PORTFOLIOS):
+        r = table.loc[key]
+        ax.bar(i, r["rmae"], color=color, width=0.6)
+        ax.text(i, r["rmae"] + 0.03, f"{r['rmae']:.2f}", ha="center", va="bottom", fontsize=9, color=INK)
+    ax.axhline(1.0, color=INK, linewidth=1.2)
+    ax.set_xlim(-0.5, 4.4)
+    ax.text(4.35, 1.02, "Sin cambio = 1", ha="right", va="bottom", fontsize=9, color=INK)
+    ax.set_xticks(range(len(STRESS_PORTFOLIOS)), [p[1] for p in STRESS_PORTFOLIOS])
+    ax.set_ylabel("MAE relativo (menor es mejor)", color=INK_2, fontsize=9)
+    ax.set_title("¿El modelo de estrés acierta si la macro se conoce? (fuera de muestra, 2023–2026)", loc="left", color=INK, fontsize=12, pad=12)
+    return _save(fig, path)

@@ -12,13 +12,14 @@
 
 ## Why this project
 
-Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer five questions an analyst actually gets asked:
+Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer six questions an analyst actually gets asked:
 
 1. How big was the COVID-era drop in arrears, and how much of it has come back?
 2. Is the recent rise a *system-wide* deterioration, or is it a few banks, or a shift in who lends?
 3. Can a simple model forecast next quarter's delinquency better than "same as today"?
 4. Do macro indicators (unemployment, the policy rate, IMACEC) improve those forecasts?
 5. Can an individual bank's delinquency be forecast, by borrowing strength across banks?
+6. Under a macro stress scenario, how far would arrears rise, and can that model be trusted?
 
 Everything runs from one command and every number below comes from that run.
 
@@ -161,6 +162,62 @@ Bank by bank at 6 months, two intervals for the pooled model exclude 1: Banco Co
 
 Limits: total arrears only, 10 banks, no correction for multiple comparisons, and the errors are small in absolute terms (0.09 to 0.33 pp), so an edge of 2 to 4% is a few hundredths of a percentage point.
 
+### 7. Stress test: only consumer arrears have a macro link worth trusting
+
+Finding 5 asked whether macro data help *forecast*. A stress test asks a different, conditional question: *if* rates, unemployment and activity moved like this, where would arrears go? I estimate one satellite regression per portfolio on the system series, then simulate it.
+
+```
+12-month change in arrears_t = a + b1·Δ12 TPM_{t-6} + b2·Δ12 unemployment_{t-6} + b3·IMACEC y/y_{t-6} + e_t
+```
+
+- **The COVID relief window (2020-03 to 2021-12) is excluded from estimation.** With it, unemployment comes out with the *wrong* sign (−0.18 pp of consumer arrears per pp of unemployment, t = −5.5), because arrears fell while unemployment rose under deferrals, pension withdrawals and transfers. That is a policy artefact, and a stress scenario without those programmes should not inherit it.
+- **Standard errors are Newey-West (12 lags).** The 12-month changes overlap, so plain OLS errors would be far too small.
+- **The Monte Carlo has two sources of uncertainty:** coefficients (drawn from the HAC covariance) and residuals (resampled from history). 10,000 draws, fixed seed.
+- **Exposure is real, loss severity is assumed.** EAD is the implied system loan book in 2026-08 (CLP 250 trillion). LGD is a Beta with mean 45% (the Basel supervisory value for senior unsecured debt) and 10 pp standard deviation.
+
+| Portfolio | n | R² | Δ12 TPM (per pp) | Δ12 unemployment (per pp) | IMACEC y/y (per %) |
+|---|---|---|---|---|---|
+| Total | 94 | 0.46 | +0.026 (t 1.9) | +0.016 (t 0.4) | −0.028 (t −2.8) |
+| Commercial | 94 | 0.44 | +0.033 (t 2.4) | +0.037 (t 1.0) | −0.024 (t −2.4) |
+| **Consumer** | 94 | **0.81** | **+0.087 (t 11.3)** | −0.063 (t −1.4) | −0.036 (t −3.1) |
+| Mortgage | 94 | 0.17 | +0.002 (t 0.1) | +0.006 (t 0.1) | −0.030 (t −1.6) |
+
+**Does it work out of sample?** For each month from 2023-01 to 2026-08 I re-estimate with data up to 12 months earlier (so no training change overlaps the predicted one), feed in the macro that actually happened, and compare with "arrears do not change". Mean absolute error relative to that benchmark (below 1 is better):
+
+![Out-of-sample check of the stress model](reports/figures/11_estres_validacion.png)
+
+Only the **consumer** model earns its keep: 0.56 (0.20 pp against 0.36 pp, 44 months). Total, commercial and mortgage are *worse* than no change (1.18, 1.32, 1.26). So I read the scenario results for consumer credit as a model output, and the others as illustrations.
+
+Scenarios, all as 12-month shocks. The two historical ones replay the changes actually observed in the 12 months to that date:
+
+| Scenario | TPM | Unemployment | IMACEC | Consumer arrears | Total arrears | Total vs base | Extra loss vs base |
+|---|---|---|---|---|---|---|---|
+| Base: no change | 0 bp | 0 pp | +2.0% | 2.35% → 2.48% | 2.44% → 2.60% | — | — |
+| Historical: 2022 hiking cycle | +725 bp | +0.7 pp | −1.0% | → **3.18%** [2.93, 3.51] | → 2.88% | +0.28 pp | CLP 319 bn |
+| Historical: 2016 slowdown | 0 bp | +0.3 pp | +1.2% | → 2.49% | → 2.63% | +0.03 pp | CLP 30 bn |
+| Hypothetical: hikes with recession | +300 bp | +2.0 pp | −3.0% | → 2.79% | → 2.85% | +0.25 pp | CLP 280 bn |
+
+Brackets are the 5th–95th percentiles. The base case already rises 0.16 pp because the intercept carries the average upward drift of the estimation sample, which is why the scenario effects are reported against the base.
+
+- **The policy rate is what moves consumer arrears.** A replay of 2022's +725 bp adds 0.70 pp over the base. The same shocks barely move mortgages (+0.11 pp).
+- **Recessions are outside the data.** Excluding the COVID window, the sample never saw IMACEC below −2.5% or unemployment rising more than 1.1 pp in a year. The hypothetical scenario is therefore extrapolation, and the engine flags it (`out_of_sample_range`).
+- **Arrears × LGD × EAD is a loss on the delinquent stock, not a 12-month expected loss.** 90+ arrears are a stock ratio, not a default rate. The CLP figures show orders of magnitude only and are not a provisioning estimate.
+
+![Stress scenarios by portfolio](reports/figures/10_estres_escenarios.png)
+
+### Serving it: DuckDB warehouse and a REST API
+
+The same data and engine are packaged for use outside the notebook:
+
+- **`warehouse.py`** builds `warehouse/delinquency.duckdb` from the committed CSVs with layered SQL models in `src/cmf_delinquency/sql/` (staging → `dim_banco` → `fct_mora_banco_mes` → `mart_sistema_macro`). Each build replaces the tables and then runs data-quality checks (no duplicate bank-months, one system row per month, loan shares summing to 1). A test checks that the SQL version of the model's factors matches the Python one to 1e-9.
+- **`api.py`** is a FastAPI service that calibrates the engine once at start-up. Endpoints: `GET /health`, `GET /model` (coefficients), `GET /scenarios` and `POST /simulate/stress-test`. Inputs are validated (bounded shocks, valid portfolio, a feasible LGD), so a bad request returns 422 and not 500.
+- **Docker:** `docker compose up --build` serves the API on port 8000 with a health check, running as a non-root user. `docker compose --profile batch run --rm warehouse` builds the warehouse in a container.
+
+```bash
+curl -X POST localhost:8000/simulate/stress-test -H "content-type: application/json" \
+     -d '{"portfolio": "consumo", "tpm_shock_bp": 300, "unemployment_delta_pp": 1, "imacec_growth": -1}'
+```
+
 ## Limitations
 
 - **Arrears are not losses.** 90+ day delinquency says nothing about recoveries, provisions or write-offs.
@@ -169,6 +226,7 @@ Limits: total arrears only, 10 banks, no correction for multiple comparisons, an
 - **Small backtest.** 56–68 overlapping origins on one regime-shifting series. The intervals are wide and the evaluation window starts in 2021, so it mostly measures the post-COVID rebound.
 - **Entity histories are not fully comparable.** Names change in the source (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), the BBVA/Scotiabank Azul series ends in 2018-08 and Banco Security is no longer reported after 2025-10. I handle the renames I could identify in the files; I did not research the corporate transactions behind them.
 - **Macro data are not real-time vintages.** They come from a third-party aggregator and are the values available on the download date; later revisions would not be visible. The one-month publication lag I apply to unemployment and IMACEC is an assumption I did not check against the official calendars, and I only tried linear models.
+- **The stress model is a single system-level regression with 94 overlapping observations** and no recession outside COVID. It is fitted on the system aggregate, so it says nothing about individual banks, and the out-of-sample check covers one tightening-and-easing cycle.
 - **The per-bank study covers 10 banks** chosen by data length and size, not all 24 entities, and it compares many intervals without correcting for it. A bank that looks predictable at one horizon is most likely noise.
 
 ## Run it
@@ -180,7 +238,10 @@ export PYTHONPATH=src                                # Windows PowerShell: $env:
 
 python -m cmf_delinquency.pipeline --offline         # uses the committed panel, ~30 s
 python -m cmf_delinquency.pipeline                   # downloads the 128 files and the macro series first
-pytest                                               # 90 tests, no network
+python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
+python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
+uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
+pytest                                               # 118 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -195,11 +256,15 @@ src/cmf_delinquency/
   macro.py      open macro indicators (mindicador.cl) and publication lags
   banks.py      per-bank forecasts: pooled models across banks, bank selection
   forecast.py   rolling-origin backtest, block-bootstrap intervals
+  stress_test.py  satellite model (HAC), Monte Carlo stress scenarios, conditional out-of-sample check
+  warehouse.py  DuckDB warehouse built from the SQL models in sql/, with data-quality checks
+  api.py        FastAPI service for the stress engine
   plots.py      figures
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          90 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page and no-look-ahead checks
+tests/          118 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 
 ## License

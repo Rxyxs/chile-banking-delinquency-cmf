@@ -51,3 +51,24 @@ jobs:
 
       - name: Run tests
         run: pytest -v
+
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build the API image
+        run: docker build -t cmf-delinquency-stress .
+
+      - name: Smoke test /health and a simulation
+        run: |
+          docker run -d --name api -p 8000:8000 cmf-delinquency-stress
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 2; done
+          curl -sf -X POST localhost:8000/simulate/stress-test -H "content-type: application/json" \
+               -d '{"portfolio": "consumo", "tpm_shock_bp": 300, "num_simulations": 1000}'
+          docker logs api
+
+      - name: Build the warehouse in a container
+        run: docker run --rm cmf-delinquency-stress python -m cmf_delinquency.warehouse

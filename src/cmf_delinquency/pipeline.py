@@ -18,6 +18,7 @@ from . import banks as B
 from . import forecast as F
 from . import macro as M
 from . import plots
+from . import stress_test as S
 from .download import download_all
 from .parse import build_panel
 from .site import build_site
@@ -129,6 +130,41 @@ def bank_study(panel: pd.DataFrame, system: pd.Series) -> dict:
     }
 
 
+STRESS_BACKTEST_START = "2023-01-01"
+
+
+def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
+    """Modelo satelite macro -> mora, escenarios de estres y validacion condicional fuera de muestra."""
+    engine = S.CreditRiskStressEngine.from_data(panel, macro_raw)
+    coefs = engine.summary()
+    coefs.to_csv(TABLES / "stress_satellite.csv")
+    grid = S.stress_grid(macro_raw, engine=engine)
+    grid.to_csv(TABLES / "stress_scenarios.csv", index=False)
+    system = A.system_series(panel)
+    bt_rows = {}
+    for p in engine.fits:
+        bt = S.conditional_backtest(system[p], macro_raw, start=STRESS_BACKTEST_START)
+        mae_m, mae_n = float(bt["err_model"].abs().mean()), float(bt["err_naive"].abs().mean())
+        bt_rows[p] = {"n": int(len(bt)), "mae_model_pp": mae_m, "mae_no_change_pp": mae_n, "rmae": mae_m / mae_n}
+    bt_table = pd.DataFrame(bt_rows).T
+    bt_table.to_csv(TABLES / "stress_backtest.csv")
+    plots.fig_stress(grid, FIGS / "10_estres_escenarios.png")
+    plots.fig_stress_backtest(bt_table, FIGS / "11_estres_validacion.png")
+    keep = ["scenario_name", "portfolio", "tpm_shock_bp", "unemployment_delta_pp", "imacec_growth", "current_mora_pct",
+            "mean_mora_pct", "p05_mora_pct", "p95_mora_pct", "p99_mora_pct", "mean_vs_base_pp", "mean_extra_loss_mm",
+            "var99_extra_loss_mm", "extra_loss_vs_base_mm", "out_of_sample_range"]
+    return {
+        "datos_hasta": engine.as_of,
+        "rezago_meses": S.LAG,
+        "excluido_de_estimacion": list(S.COVID_RELIEF),
+        "ead_mm": engine.ead_mm,
+        "lgd_supuesto": {"media": engine.lgd_mean, "desviacion": engine.lgd_sd},
+        "satelite": coefs.reset_index().to_dict(orient="records"),
+        "escenarios": grid[keep].to_dict(orient="records"),
+        "validacion_condicional": bt_rows,
+    }
+
+
 def _round(obj):
     """Redondea y convierte NaN/inf en None: json.dumps escribe NaN, que no es JSON valido."""
     if isinstance(obj, float):
@@ -178,7 +214,9 @@ def run(offline: bool = False) -> dict:
     plots.fig_dispersion(panel, FIGS / "03_dispersion_consumo.png", "consumo")
     plots.fig_forecast(ci, FIGS / "04_backtest_rmae.png")
     plots.fig_heatmap(panel, FIGS / "05_mapa_calor_bancos.png")
-    macro_results = macro_study(series, load_macro(offline), errors)
+    macro_raw = load_macro(offline)
+    macro_results = macro_study(series, macro_raw, errors)
+    stress_results = stress_study(panel, macro_raw)
     bank_results = bank_study(panel, series)
 
     peak = disp["iqr"].idxmax()
@@ -204,6 +242,7 @@ def run(offline: bool = False) -> dict:
         "persistencia_rangos_consumo": persistence,
         "macro": macro_results,
         "bancos_pronostico": bank_results,
+        "estres": stress_results,
         "backtest": {
             "origenes_h1": int(rel.loc[1, "n"]),
             "rmae": rel[list(F.MODELS)].to_dict(orient="index"),
