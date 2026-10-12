@@ -10,6 +10,7 @@ desenlace ya se conocia en el origen, y se compara contra el pronostico ingenuo.
 """
 from __future__ import annotations
 
+import time
 import warnings
 
 import numpy as np
@@ -158,3 +159,136 @@ def bank_table(errors: pd.DataFrame, model: str, h: int) -> pd.DataFrame:
         "n_origenes": sub[sub["model"] == "naive"].groupby("bank").size(),
     })
     return out.sort_values("rmae")
+
+
+# ------------------------------------------------------------------------------------------------
+# Composicion de la cartera por banco (Reporte Financiero Mensual de la CMF)
+#
+# El archivo de mora entrega solo porcentajes y el monto moroso total, no el saldo de cada cartera.
+# El Reporte Financiero Mensual (hoja "Activos Bancos 2") si trae las colocaciones comerciales,
+# de consumo (con el detalle de tarjetas de credito) y de vivienda de cada banco, en MM$.
+# Hay dos formatos: el antiguo (hasta 2021) y el del nuevo Compendio de Normas Contables (desde
+# 2022). Las columnas se ubican por su encabezado, no por posicion, para leer ambos.
+RFM_INDEX_URL = "https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-28910.html"
+RFM_SHEET = "Activos Bancos 2"
+LOAN_MIX_MONTHS = tuple(f"{y}-12" for y in range(2019, 2026))
+
+
+def _find_col(header: pd.DataFrame, *prefixes: str) -> int:
+    for col in header.columns:
+        for cell in header[col].dropna().astype(str):
+            if any(cell.strip().lower().startswith(p.lower()) for p in prefixes):
+                return int(col)
+    raise ValueError(f"No se encontro una columna que empiece con {prefixes}")
+
+
+def parse_loan_mix(path, month: str) -> pd.DataFrame:
+    """Colocaciones por banco (MM$) y participacion de consumo y de tarjetas, de un Reporte Financiero Mensual."""
+    raw = pd.read_excel(path, sheet_name=RFM_SHEET, header=None)
+    header = raw.iloc[:12]
+    name_col = _find_col(header, "Instituciones")
+    cols = {
+        "comercial_mm": _find_col(header, "Colocaciones comerci", "Comerciales (1)"),
+        "consumo_mm": _find_col(header, "Consumo (1)"),
+        "tarjetas_mm": _find_col(header, "Tarjetas de cr", "Deudores por Tarjetas"),
+        "vivienda_mm": _find_col(header, "Vivienda (1)"),
+    }
+    body = raw.iloc[12:]
+    body = body[body[name_col].astype(str).str.strip().ne("") & body[name_col].notna()]
+    out = pd.DataFrame({"bank_raw": body[name_col].astype(str).str.strip()})
+    for key, col in cols.items():
+        out[key] = pd.to_numeric(body[col], errors="coerce")
+    out = out.dropna(subset=["consumo_mm", "comercial_mm"])
+    out = out[~out["bank_raw"].str.lower().str.startswith(("sistema", "nota", "fuente", "("))]
+    out["loans_mm"] = out[["comercial_mm", "consumo_mm", "vivienda_mm"]].sum(axis=1)
+    out = out[out["loans_mm"] > 0]
+    out["consumo_share"] = out["consumo_mm"] / out["loans_mm"]
+    out["tarjetas_share_consumo"] = (out["tarjetas_mm"] / out["consumo_mm"]).where(out["consumo_mm"] > 0)
+    out.insert(0, "month", month)
+    return out.reset_index(drop=True)
+
+
+def rfm_candidates(html: str) -> dict[str, list[str]]:
+    """Archivos de cada mes en el orden de la pagina. La pagina mezcla el reporte con anexos y cuadros
+    del mismo mes; el reporte suele ser el primero, pero se valida abriendo el archivo."""
+    from .download import _LINK_RE, MESES
+
+    out: dict[str, list[str]] = {}
+    for filename, label in _LINK_RE.findall(html):
+        mes, _, anio = label.strip().lower().partition(" ")
+        if mes in MESES and anio.strip().isdigit():
+            out.setdefault(f"{int(anio)}-{MESES[mes]:02d}", []).append(filename)
+    return out
+
+
+def _has_sheet(path, sheet: str = RFM_SHEET) -> bool:
+    try:
+        return sheet in pd.ExcelFile(path).sheet_names
+    except Exception:
+        return False
+
+
+def download_loan_mix(raw_dir, months: tuple[str, ...] = LOAN_MIX_MONTHS, delay: float = 0.4) -> pd.DataFrame:
+    """Baja los Reportes Financieros Mensuales pedidos y devuelve la composicion de cartera de cada banco."""
+    from pathlib import Path
+
+    import requests
+
+    from .download import BASE_URL, USER_AGENT
+    from .parse import canonical_bank
+
+    raw_dir = Path(raw_dir)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    session = requests.Session()
+    index: dict[str, list[str]] | None = None
+    frames = []
+    for month in months:
+        target = raw_dir / f"{month}.xlsx"
+        if not _has_sheet(target):
+            if index is None:
+                resp = session.get(RFM_INDEX_URL, headers={"User-Agent": USER_AGENT}, timeout=60)
+                resp.raise_for_status()
+                index = rfm_candidates(resp.text)
+            for filename in index.get(month, []):
+                r = session.get(BASE_URL + filename, headers={"User-Agent": USER_AGENT}, timeout=60)
+                r.raise_for_status()
+                target.write_bytes(r.content)
+                time.sleep(delay)
+                if _has_sheet(target):
+                    break
+            else:
+                raise RuntimeError(f"No se encontro el Reporte Financiero Mensual de {month}")
+        mix = parse_loan_mix(target, month)
+        mix["bank"] = [canonical_bank(b, pd.Timestamp(f"{month}-01")) for b in mix["bank_raw"]]
+        frames.append(mix.dropna(subset=["bank"]))
+    return pd.concat(frames, ignore_index=True)
+
+
+def loan_mix_profile(mix: pd.DataFrame) -> pd.DataFrame:
+    """Promedio por banco de la participacion de consumo y de tarjetas en los meses disponibles."""
+    return mix.groupby("bank").agg(
+        consumo_share=("consumo_share", "mean"),
+        tarjetas_share_consumo=("tarjetas_share_consumo", "mean"),
+        loans_mm=("loans_mm", "mean"),
+        n_meses=("month", "nunique"),
+    )
+
+
+def explain_sensitivity(sensitivity: pd.DataFrame, profile: pd.DataFrame,
+                        features: tuple[str, ...] = ("consumo_share", "tarjetas_share_consumo", "mora_actual")) -> pd.DataFrame:
+    """Correlacion de rangos (Spearman) entre la sensibilidad a la TPM de cada banco y rasgos de su cartera.
+
+    Con ~10 bancos esto describe asociaciones, no causas: un rho de 0,6 tiene un IC muy ancho y el
+    p-valor por permutacion se reporta para no leer ruido como explicacion.
+    """
+    df = sensitivity.join(profile, how="inner")
+    rows = []
+    rng = np.random.default_rng(42)
+    for feat in features:
+        pair = df[["beta_tpm", feat]].dropna()
+        rho = float(pair["beta_tpm"].rank().corr(pair[feat].rank()))
+        perms = np.array([pair["beta_tpm"].rank().corr(pd.Series(rng.permutation(pair[feat].rank().to_numpy()),
+                                                                index=pair.index)) for _ in range(5000)])
+        rows.append({"rasgo": feat, "n_bancos": int(len(pair)), "spearman": rho,
+                     "p_permutacion": float((np.abs(perms) >= abs(rho) - 1e-12).mean())})
+    return pd.DataFrame(rows).set_index("rasgo")

@@ -1068,7 +1068,11 @@
           "lo": 0.107,
           "hi": 0.1995,
           "r2": 0.5536,
-          "mora_actual": 3.2577
+          "mora_actual": 3.2577,
+          "consumo_share": 0.0752,
+          "tarjetas_share_consumo": 0.1666,
+          "loans_mm": 31530340.1493,
+          "n_meses": 7
         },
         {
           "bank": "Banco de Crédito e Inversiones",
@@ -1078,7 +1082,11 @@
           "lo": 0.0806,
           "hi": 0.1518,
           "r2": 0.731,
-          "mora_actual": 2.1121
+          "mora_actual": 2.1121,
+          "consumo_share": 0.0795,
+          "tarjetas_share_consumo": 0.3899,
+          "loans_mm": 45152493.3651,
+          "n_meses": 7
         },
         {
           "bank": "Scotiabank Chile",
@@ -1088,7 +1096,11 @@
           "lo": 0.07,
           "hi": 0.1284,
           "r2": 0.7136,
-          "mora_actual": 2.2499
+          "mora_actual": 2.2499,
+          "consumo_share": 0.1272,
+          "tarjetas_share_consumo": 0.5397,
+          "loans_mm": 30026466.2662,
+          "n_meses": 7
         },
         {
           "bank": "Banco Itaú Chile",
@@ -1098,7 +1110,11 @@
           "lo": 0.0712,
           "hi": 0.1153,
           "r2": 0.4972,
-          "mora_actual": 2.5772
+          "mora_actual": 2.5772,
+          "consumo_share": 0.116,
+          "tarjetas_share_consumo": 0.2393,
+          "loans_mm": 25956359.7847,
+          "n_meses": 7
         },
         {
           "bank": "Banco de Chile",
@@ -1108,7 +1124,11 @@
           "lo": 0.0398,
           "hi": 0.0771,
           "r2": 0.6361,
-          "mora_actual": 2.2181
+          "mora_actual": 2.2181,
+          "consumo_share": 0.1386,
+          "tarjetas_share_consumo": 0.3169,
+          "loans_mm": 35367888.3493,
+          "n_meses": 7
         },
         {
           "bank": "Banco Santander-Chile",
@@ -1118,7 +1138,11 @@
           "lo": 0.0136,
           "hi": 0.0607,
           "r2": 0.4441,
-          "mora_actual": 2.2431
+          "mora_actual": 2.2431,
+          "consumo_share": 0.145,
+          "tarjetas_share_consumo": 0.2872,
+          "loans_mm": 37905511.8714,
+          "n_meses": 7
         },
         {
           "bank": "Banco Security",
@@ -1128,7 +1152,11 @@
           "lo": 0.0186,
           "hi": 0.0469,
           "r2": 0.3888,
-          "mora_actual": 1.5288
+          "mora_actual": 1.5288,
+          "consumo_share": 0.0701,
+          "tarjetas_share_consumo": 0.2339,
+          "loans_mm": 6875058.5723,
+          "n_meses": 6
         },
         {
           "bank": "Banco Bice",
@@ -1138,7 +1166,11 @@
           "lo": 0.0084,
           "hi": 0.0405,
           "r2": 0.1969,
-          "mora_actual": 1.3568
+          "mora_actual": 1.3568,
+          "consumo_share": 0.0311,
+          "tarjetas_share_consumo": 0.2921,
+          "loans_mm": 8730865.3404,
+          "n_meses": 7
         },
         {
           "bank": "Banco Consorcio",
@@ -1148,7 +1180,11 @@
           "lo": -0.0042,
           "hi": 0.0322,
           "r2": 0.114,
-          "mora_actual": 1.4754
+          "mora_actual": 1.4754,
+          "consumo_share": 0.0222,
+          "tarjetas_share_consumo": 0.0418,
+          "loans_mm": 4513279.0109,
+          "n_meses": 7
         },
         {
           "bank": "Banco Internacional",
@@ -1158,10 +1194,195 @@
           "lo": -0.2178,
           "hi": 0.0508,
           "r2": 0.0283,
-          "mora_actual": 2.3103
+          "mora_actual": 2.3103,
+          "consumo_share": 0.0421,
+          "tarjetas_share_consumo": 0.0486,
+          "loans_mm": 2940637.7706,
+          "n_meses": 7
         }
+      ],
+      "explicacion_spearman": [
+        {
+          "rasgo": "consumo_share",
+          "n_bancos": 10,
+          "spearman": 0.5515,
+          "p_permutacion": 0.11
+        },
+        {
+          "rasgo": "tarjetas_share_consumo",
+          "n_bancos": 10,
+          "spearman": 0.5152,
+          "p_permutacion": 0.133
+        },
+        {
+          "rasgo": "mora_actual",
+          "n_bancos": 10,
+          "spearman": 0.4788,
+          "p_permutacion": 0.16
+        }
+      ],
+      "meses_composicion": [
+        "2019-12",
+        "2020-12",
+        "2021-12",
+        "2022-12",
+        "2023-12",
+        "2024-12",
+        "2025-12"
       ]
     }
+  },
+  "ml": {
+    "shap": {
+      "horizonte": 6,
+      "valor_base_pp": 0.0088,
+      "importancia_global": {
+        "tpm": 0.098,
+        "nivel": 0.0898,
+        "mom6": 0.0643,
+        "d12_desempleo": 0.0613,
+        "d12_tpm": 0.061,
+        "imacec_anual": 0.0516,
+        "brecha_sistema": 0.0447,
+        "mom12": 0.0431,
+        "sistema_mom3": 0.0408,
+        "mom3": 0.0376
+      },
+      "local_banco": {
+        "bank": "Banco del Estado de Chile",
+        "date": "2026-08",
+        "mora_actual": 3.2577,
+        "base_value": 0.0088,
+        "prediction_pp": -0.1877,
+        "aportes_grupo": {
+          "TPM": -0.1482,
+          "Desempleo": -0.0543,
+          "IMACEC": 0.1271,
+          "Dinámica propia del banco": -0.1518,
+          "Sistema": 0.0306
+        },
+        "aportes_atributo": {
+          "nivel": -0.3593,
+          "mom3": -0.0329,
+          "mom6": 0.0606,
+          "mom12": 0.0231,
+          "brecha_sistema": 0.1568,
+          "sistema_mom3": 0.0306,
+          "tpm": -0.0477,
+          "d12_tpm": -0.1005,
+          "d12_desempleo": -0.0543,
+          "imacec_anual": 0.1271
+        },
+        "atributos": {
+          "nivel": 3.2577,
+          "mom3": 0.0408,
+          "mom6": -0.0437,
+          "mom12": 0.2306,
+          "brecha_sistema": 0.9107,
+          "sistema_mom3": -0.0063,
+          "tpm": 4.5,
+          "d12_tpm": -0.25,
+          "d12_desempleo": 0.83,
+          "imacec_anual": -1.5
+        },
+        "error_aditividad": 0.0
+      },
+      "max_error_aditividad": 0.0
+    },
+    "backtest": [
+      {
+        "cartera": "consumo",
+        "h": 3,
+        "model": "ols_agrupado",
+        "origenes": 65,
+        "mae_naive_pp": 0.1869,
+        "rmae": 1.6567,
+        "lo": 1.2964,
+        "hi": 2.0226
+      },
+      {
+        "cartera": "consumo",
+        "h": 3,
+        "model": "lightgbm",
+        "origenes": 65,
+        "mae_naive_pp": 0.1869,
+        "rmae": 1.5165,
+        "lo": 1.3425,
+        "hi": 1.7132
+      },
+      {
+        "cartera": "consumo",
+        "h": 6,
+        "model": "ols_agrupado",
+        "origenes": 62,
+        "mae_naive_pp": 0.2695,
+        "rmae": 2.3149,
+        "lo": 1.3718,
+        "hi": 3.0447
+      },
+      {
+        "cartera": "consumo",
+        "h": 6,
+        "model": "lightgbm",
+        "origenes": 62,
+        "mae_naive_pp": 0.2695,
+        "rmae": 1.6078,
+        "lo": 1.3788,
+        "hi": 1.9613
+      },
+      {
+        "cartera": "total",
+        "h": 3,
+        "model": "ols_agrupado",
+        "origenes": 65,
+        "mae_naive_pp": 0.1624,
+        "rmae": 1.0939,
+        "lo": 1.0171,
+        "hi": 1.1899
+      },
+      {
+        "cartera": "total",
+        "h": 3,
+        "model": "lightgbm",
+        "origenes": 65,
+        "mae_naive_pp": 0.1624,
+        "rmae": 1.0245,
+        "lo": 0.9681,
+        "hi": 1.0833
+      },
+      {
+        "cartera": "total",
+        "h": 6,
+        "model": "ols_agrupado",
+        "origenes": 62,
+        "mae_naive_pp": 0.2358,
+        "rmae": 1.2966,
+        "lo": 1.0123,
+        "hi": 1.5514
+      },
+      {
+        "cartera": "total",
+        "h": 6,
+        "model": "lightgbm",
+        "origenes": 62,
+        "mae_naive_pp": 0.2358,
+        "rmae": 1.032,
+        "lo": 0.9325,
+        "hi": 1.1321
+      }
+    ],
+    "atributos": [
+      "nivel",
+      "mom3",
+      "mom6",
+      "mom12",
+      "brecha_sistema",
+      "sistema_mom3",
+      "tpm",
+      "d12_tpm",
+      "d12_desempleo",
+      "imacec_anual"
+    ]
   },
   "backtest": {
     "origenes_h1": 68,

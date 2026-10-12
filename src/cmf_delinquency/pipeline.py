@@ -27,6 +27,10 @@ ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw"
 PANEL_CSV = ROOT / "data" / "panel_mora90.csv"
 MACRO_CSV = ROOT / "data" / "macro_indicators.csv"
+LOAN_MIX_CSV = ROOT / "data" / "loan_mix.csv"
+RAW_RFM = ROOT / "data" / "raw_rfm"
+SHAP_JSON = ROOT / "reports" / "shap_explanations.json"
+SHAP_BANK = "Banco del Estado de Chile"
 FIGS = ROOT / "reports" / "figures"
 RESULTS = ROOT / "reports" / "results.json"
 TABLES = ROOT / "reports" / "tables"
@@ -51,6 +55,14 @@ def load_macro(offline: bool) -> pd.DataFrame:
     macro = M.download_macro()
     macro.to_csv(MACRO_CSV)
     return macro
+
+
+def load_loan_mix(offline: bool) -> pd.DataFrame:
+    if offline:
+        return pd.read_csv(LOAN_MIX_CSV)
+    mix = B.download_loan_mix(RAW_RFM)
+    mix.to_csv(LOAN_MIX_CSV, index=False)
+    return mix
 
 
 MACRO_MODELS = ["momentum+unemployment", "momentum+macro"]
@@ -133,7 +145,7 @@ def bank_study(panel: pd.DataFrame, system: pd.Series) -> dict:
 STRESS_BACKTEST_START = "2023-01-01"
 
 
-def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
+def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame, loan_mix: pd.DataFrame) -> dict:
     """Modelo satelite macro -> mora, escenarios de estres y validacion condicional fuera de muestra."""
     engine = S.CreditRiskStressEngine.from_data(panel, macro_raw)
     coefs = engine.summary()
@@ -158,6 +170,10 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
     bank_table, heterogeneity = S.bank_sensitivity(B.wide_series(panel, banks, "consumo"), macro_raw, consumer_lag)
     bank_table.to_csv(TABLES / "stress_bank_tpm_consumo.csv")
     plots.fig_bank_tpm(bank_table, heterogeneity, FIGS / "12_estres_bancos_tpm.png")
+    profile = B.loan_mix_profile(loan_mix)
+    explained = B.explain_sensitivity(bank_table, profile)
+    bank_table.join(profile).to_csv(TABLES / "stress_bank_tpm_consumo.csv")
+    explained.to_csv(TABLES / "stress_bank_tpm_explicacion.csv")
     plots.fig_stress(grid, FIGS / "10_estres_escenarios.png")
     plots.fig_stress_backtest(bt_table, lag_table, FIGS / "11_estres_validacion.png")
     keep = ["scenario_name", "portfolio", "tpm_shock_bp", "unemployment_delta_pp", "imacec_growth", "current_mora_pct",
@@ -173,8 +189,40 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
         "escenarios": grid[keep].to_dict(orient="records"),
         "validacion_condicional": bt_rows,
         "sensibilidad_rezago": lag_rows,
-        "bancos_consumo_tpm": {**heterogeneity, "bancos": bank_table.reset_index().to_dict(orient="records")},
+        "bancos_consumo_tpm": {**heterogeneity, "bancos": bank_table.join(profile).reset_index().to_dict(orient="records"),
+                               "explicacion_spearman": explained.reset_index().to_dict(orient="records"),
+                               "meses_composicion": sorted(loan_mix["month"].unique().tolist())},
     }
+
+
+def ml_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
+    """LightGBM por banco (consumo y total) contra el ingenuo y un lineal agrupado; SHAP sobre consumo a 6 meses."""
+    from .models import ml_shap as ML
+
+    system = A.system_series(panel)
+    rows, out = [], {}
+    for portfolio in ("consumo", "total"):
+        data = ML.build_panel(panel, macro_raw, system[portfolio], portfolio)
+        table = ML.backtest_table(ML.rolling_origin(data))
+        table.insert(0, "cartera", portfolio)
+        rows.append(table)
+        if portfolio == "consumo":
+            _, report = ML.explain(data, h=6)
+            ML.shap_summary_plot(report, FIGS / "shap_summary.png")
+            ML.shap_local_plot(report, SHAP_BANK, FIGS / "13_shap_local.png")
+            ML.export_json(report, table, SHAP_JSON)
+            out["shap"] = {
+                "horizonte": report.horizon,
+                "valor_base_pp": report.base_value,
+                "importancia_global": report.global_importance.to_dict(),
+                "local_banco": next(x for x in report.local if x["bank"] == SHAP_BANK),
+                "max_error_aditividad": max(x["error_aditividad"] for x in report.local),
+            }
+    backtest = pd.concat(rows, ignore_index=True)
+    backtest.to_csv(TABLES / "ml_backtest.csv", index=False)
+    out["backtest"] = backtest.to_dict(orient="records")
+    out["atributos"] = list(ML.FEATURES)
+    return out
 
 
 def _round(obj):
@@ -228,7 +276,8 @@ def run(offline: bool = False) -> dict:
     plots.fig_heatmap(panel, FIGS / "05_mapa_calor_bancos.png")
     macro_raw = load_macro(offline)
     macro_results = macro_study(series, macro_raw, errors)
-    stress_results = stress_study(panel, macro_raw)
+    stress_results = stress_study(panel, macro_raw, load_loan_mix(offline))
+    ml_results = ml_study(panel, macro_raw)
     bank_results = bank_study(panel, series)
 
     peak = disp["iqr"].idxmax()
@@ -255,6 +304,7 @@ def run(offline: bool = False) -> dict:
         "macro": macro_results,
         "bancos_pronostico": bank_results,
         "estres": stress_results,
+        "ml": ml_results,
         "backtest": {
             "origenes_h1": int(rel.loc[1, "n"]),
             "rmae": rel[list(F.MODELS)].to_dict(orient="index"),

@@ -12,7 +12,7 @@ Español · [English version](README.md)
 
 ## Por qué este proyecto
 
-La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder seis preguntas que un analista recibe de verdad:
+La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el crédito en Chile se está deteriorando, y la CMF la publica todos los meses. Pero la publica en **128 archivos Excel separados**, uno por mes, con **tres formatos distintos**. Quise convertir eso en un solo panel limpio y responder siete preguntas que un analista recibe de verdad:
 
 1. ¿Qué tan grande fue la caída de la mora durante el COVID y cuánto ha vuelto?
 2. ¿El alza reciente es un deterioro de *todo el sistema*, de unos pocos bancos, o un cambio en quién presta?
@@ -20,6 +20,7 @@ La morosidad bancaria es lo primero que se pregunta cuando se quiere saber si el
 4. ¿Mejoran esos pronósticos los indicadores macro (desempleo, tasa de política monetaria, IMACEC)?
 5. ¿Se puede pronosticar la mora de un banco en particular, tomando información entre bancos?
 6. Ante un escenario macro de estrés, ¿cuánto subiría la mora, y se puede confiar en ese modelo?
+7. ¿Le va mejor a un modelo de machine learning, y en qué se apoya?
 
 Todo corre con un solo comando y cada número de abajo sale de esa corrida.
 
@@ -37,6 +38,8 @@ Fuente: [CMF Chile — *Indicador de morosidad de 90 días o más individual del
 El panel limpio, que es pequeño, está versionado en [`data/panel_mora90.csv`](data/panel_mora90.csv): los tests y las corridas con `--offline` no necesitan red. Los `.xlsx` originales se descargan al ejecutar y no se versionan.
 
 **Indicadores macro (hallazgo 5).** Desempleo, tasa de política monetaria (TPM) e IMACEC mensuales desde [mindicador.cl](https://mindicador.cl), una API abierta que replica series del Banco Central y del INE. Es un agregador de terceros, no el publicador oficial, así que las cifras pueden diferir de las oficiales o revisarse después; uso los valores tal como estaban al descargarlos (2026-10-03), no versiones en tiempo real. La tabla, pequeña, está versionada en [`data/macro_indicators.csv`](data/macro_indicators.csv). El IPC queda fuera porque la API solo lo entrega hasta 2025-12.
+
+**Composición de cartera por banco (hallazgos 7 y 8).** Colocaciones comerciales, de consumo (con tarjetas) y de vivienda de cada banco, en MM$, del [*Reporte Financiero Mensual*](https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-28910.html) de la CMF, hoja "Activos Bancos 2", diciembres de 2019 a 2025. El parser lee el formato anterior a 2022 y el del nuevo compendio contable ubicando los encabezados. La tabla está versionada en [`data/loan_mix.csv`](data/loan_mix.csv).
 
 ### Cosas que hacen los archivos y que un lector ingenuo interpretaría mal
 
@@ -199,7 +202,15 @@ Hay cuatro decisiones de modelado, y cada una la obliga algo que aparece en los 
 
 ![Sensibilidad de la mora de consumo a la TPM por banco](reports/figures/12_estres_bancos_tpm.png)
 
-BancoEstado (+0,15 pp por cada 100 pb), BCI (+0,12), Scotiabank (+0,10) e Itaú (+0,09) reaccionan entre tres y diez veces más que Bice (+0,02), Consorcio (+0,01) y Security (+0,03). La hipótesis de que todos los bancos comparten un mismo coeficiente se rechaza con holgura (Q de Cochran = 94 con 9 gl), aunque la Q exagera la evidencia porque los bancos comparten el mismo ciclo. Una lectura plausible es que los bancos que prestan a clientes de mayores ingresos están menos expuestos a la tasa, pero no tuve datos de clientes para probarlo.
+BancoEstado (+0,15 pp por cada 100 pb), BCI (+0,12), Scotiabank (+0,10) e Itaú (+0,09) reaccionan entre tres y diez veces más que Bice (+0,02), Consorcio (+0,01) y Security (+0,03). La hipótesis de que todos los bancos comparten un mismo coeficiente se rechaza con holgura (Q de Cochran = 94 con 9 gl), aunque la Q exagera la evidencia porque los bancos comparten el mismo ciclo. **¿Lo explica la composición de la cartera?** Los archivos de mora solo entregan porcentajes, así que tomé las colocaciones de cada banco por cartera de una segunda fuente de la CMF, el *Reporte Financiero Mensual* (hoja "Activos Bancos 2", diciembres de 2019 a 2025, en ambos formatos contables). La asociación es positiva pero débil, y con 10 bancos ninguna es significativa:
+
+| Rasgo del banco (promedio 2019–2025) | Spearman con la sensibilidad a la TPM | p por permutación |
+|---|---|---|
+| Consumo / colocaciones totales | 0,55 | 0,11 |
+| Tarjetas / consumo | 0,52 | 0,13 |
+| Mora de consumo actual | 0,48 | 0,16 |
+
+BancoEstado (7,5% en consumo) y BCI (8,0%) son los más sensibles y tienen *menos* consumo que Santander (14,5%) o el Banco de Chile (13,9%), así que la composición de la cartera no es la explicación. Un canal por ingreso de los clientes es plausible pero no está probado: la CMF no publica el ingreso de los deudores por banco.
 
 **Escenarios**, todos como shocks a 12 meses. Los dos históricos repiten los cambios efectivamente observados en los 12 meses hasta esa fecha:
 
@@ -216,6 +227,30 @@ Los corchetes son los percentiles 5 y 95. El escenario base sube cerca de 0,15 p
 - **Mora × LGD × EAD es una pérdida sobre el stock moroso, no una pérdida esperada a 12 meses.** La mora 90+ es un stock, no una tasa de default. Las cifras en CLP sirven solo como orden de magnitud y no son una estimación de provisiones.
 
 ![Escenarios de estrés por cartera](reports/figures/10_estres_escenarios.png)
+
+### 8. El machine learning tampoco le gana a "sin cambio"; SHAP muestra por qué
+
+Los hallazgos 4 a 6 usaron modelos lineales y de suavizamiento exponencial. ¿Le iría mejor a un modelo no lineal a nivel de banco? `models/ml_shap.py` entrena un LightGBM sobre los 10 bancos elegibles para pronosticar el cambio de la mora de cada banco a 3 y 6 meses. Usa la dinámica propia del banco (nivel, cambios a 3, 6 y 12 meses, brecha al sistema), el momentum del sistema y la macro conocida en ese mes, con sus rezagos de publicación. En cada origen desde 2021 se reentrena solo con desenlaces ya conocidos, y se compara con "sin cambio" y con una regresión lineal agrupada sobre los mismos atributos. MAE relativo a "sin cambio", con intervalo de 95% por bootstrap de bloques:
+
+| Cartera | Horizonte | Lineal agrupado | LightGBM |
+|---|---|---|---|
+| Consumo | 3 meses | 1,66 [1,30; 2,02] | 1,52 [1,34; 1,71] |
+| Consumo | 6 meses | 2,31 [1,37; 3,04] | 1,61 [1,38; 1,96] |
+| Total | 3 meses | 1,09 [1,02; 1,19] | 1,02 [0,97; 1,08] |
+| Total | 6 meses | 1,30 [1,01; 1,55] | 1,03 [0,93; 1,13] |
+
+- **Ningún modelo le gana a "sin cambio".** En consumo ambos son claramente peores. LightGBM es menos malo que el lineal porque los árboles no extrapolan. En la mora total, LightGBM empata con "sin cambio".
+- **Sacar la ventana COVID del entrenamiento no lo rescata** (consumo a 6 meses: 1,85). Los primeros orígenes pierden casi todo su entrenamiento.
+
+**SHAP** (TreeExplainer) descompone cada pronóstico de forma exacta: valor base + un aporte por atributo = pronóstico. El error de aditividad está bajo 1e-9, y un test lo verifica.
+
+![Resumen global de SHAP](reports/figures/shap_summary.png)
+
+El hallazgo de auditoría es el propio orden: el atributo más importante es el **nivel** de la TPM, por delante de su cambio. En una muestra con un solo ciclo de alzas, el nivel de la tasa funciona como un reloj que le dice al modelo en qué régimen está, no como una causa, y eso es consistente con que falle fuera de muestra. La explicación local de BancoEstado en 2026-08 muestra lo mismo: de un pronóstico de −0,19 pp a 6 meses, −0,15 pp viene de la tasa y −0,15 pp de la dinámica propia del banco.
+
+![Explicación SHAP local de BancoEstado](reports/figures/13_shap_local.png)
+
+SHAP explica lo que hace el modelo, no lo que mueve la mora. Aquí su uso principal es mostrar por qué un modelo que ajusta bien dentro de muestra no debería ponerse en producción. La salida completa (importancia global, una descomposición por banco, el backtest y los parámetros del modelo) está en `reports/shap_explanations.json`.
 
 ### Cómo se sirve: almacén DuckDB y una API REST
 
@@ -239,6 +274,7 @@ curl -X POST localhost:8000/simulate/stress-test -H "content-type: application/j
 - **Las historias de las entidades no son del todo comparables.** Los nombres cambian en la fuente (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), la serie BBVA/Scotiabank Azul termina en 2018-08 y Banco Security deja de reportarse después de 2025-10. Manejo los cambios de nombre que pude identificar en los archivos; no investigué las operaciones societarias detrás de ellos.
 - **Los datos macro no son versiones en tiempo real.** Vienen de un agregador de terceros y son los valores disponibles en la fecha de descarga; revisiones posteriores no se verían. El rezago de publicación de un mes que aplico al desempleo y al IMACEC es un supuesto que no verifiqué contra los calendarios oficiales, y solo probé modelos lineales.
 - **El modelo de estrés descansa en 94 observaciones mensuales solapadas** y en un solo ciclo de alzas y bajas, sin recesiones fuera del COVID. La elección del rezago y de los signos depende a su vez de los datos. Las sensibilidades por banco salen de la misma muestra corta y usan la mora de consumo total, no datos por crédito.
+- **La prueba de composición de cartera tiene 10 bancos.** Una correlación de Spearman con 10 puntos tiene intervalos muy anchos, así que "no significativo" quiere decir "no demostrado", no "sin efecto". La composición usa fotos de diciembre, no todos los meses.
 - **El estudio por banco cubre 10 bancos** elegidos por largo de datos y tamaño, no las 24 entidades, y compara muchos intervalos sin corregirlo. Un banco que parece predecible a un horizonte es muy probablemente ruido.
 
 ## Cómo correrlo
@@ -253,7 +289,7 @@ python -m cmf_delinquency.pipeline                   # descarga primero los 128 
 python -m cmf_delinquency.stress_test               # escenarios de estrés en la terminal
 python -m cmf_delinquency.warehouse                  # almacén DuckDB en warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # API REST (o: docker compose up --build)
-pytest                                               # 124 tests, sin red
+pytest                                               # 137 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -271,11 +307,12 @@ src/cmf_delinquency/
   stress_test.py  modelo satélite (elección de rezago, restricciones de signo, HAC), escenarios por Monte Carlo, validación anidada fuera de muestra, sensibilidad por banco
   warehouse.py  almacén DuckDB construido con los modelos SQL de sql/, con chequeos de calidad
   api.py        servicio FastAPI del motor de estrés
+  models/ml_shap.py  pronóstico por banco con LightGBM, backtest de origen móvil, explicaciones SHAP
   plots.py      figuras
   site.py       genera la página de GitHub Pages (docs/index.html) desde el panel y results.json
   pipeline.py   de punta a punta
 docs/           el sitio de GitHub Pages (generado; no se edita a mano)
-tests/          124 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
+tests/          137 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
 Dockerfile, docker-compose.yml   contenedor de la API (y un job batch para el almacén)
 ```
 

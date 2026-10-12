@@ -12,7 +12,7 @@
 
 ## Why this project
 
-Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer six questions an analyst actually gets asked:
+Bank delinquency is the first number anyone asks for when they want to know whether Chilean credit is getting worse, and the CMF publishes it every month. But it is published as **128 separate Excel files**, one per month, in **three different layouts**. I wanted to turn that into one clean panel and answer seven questions an analyst actually gets asked:
 
 1. How big was the COVID-era drop in arrears, and how much of it has come back?
 2. Is the recent rise a *system-wide* deterioration, or is it a few banks, or a shift in who lends?
@@ -20,6 +20,7 @@ Bank delinquency is the first number anyone asks for when they want to know whet
 4. Do macro indicators (unemployment, the policy rate, IMACEC) improve those forecasts?
 5. Can an individual bank's delinquency be forecast, by borrowing strength across banks?
 6. Under a macro stress scenario, how far would arrears rise, and can that model be trusted?
+7. Does a machine-learning model do better, and what does it rely on?
 
 Everything runs from one command and every number below comes from that run.
 
@@ -37,6 +38,8 @@ Source: [CMF Chile — *Indicador de morosidad de 90 días o más individual del
 The small tidy panel is committed at [`data/panel_mora90.csv`](data/panel_mora90.csv) so tests and `--offline` runs need no network. Raw `.xlsx` files are downloaded on demand and not versioned.
 
 **Macro indicators (finding 5).** Monthly unemployment, policy rate (TPM) and IMACEC from [mindicador.cl](https://mindicador.cl), an open API that mirrors Banco Central and INE series. It is a third-party aggregator, not the official publisher, so figures can differ from the official ones or be revised later; I use the values as they stood when I downloaded them (2026-10-03), not real-time vintages. The small table is committed at [`data/macro_indicators.csv`](data/macro_indicators.csv). CPI is left out because the API only returns it up to 2025-12.
+
+**Loan mix by bank (findings 7 and 8).** Commercial, consumer (with credit cards) and mortgage loans of each bank, in MM$, from the CMF [*Reporte Financiero Mensual*](https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-28910.html), sheet "Activos Bancos 2", December 2019 to December 2025. The parser reads both the pre-2022 layout and the new accounting compendium by locating headers. The table is committed at [`data/loan_mix.csv`](data/loan_mix.csv).
 
 ### Things the files do that a naive reader would get wrong
 
@@ -199,7 +202,15 @@ Four modelling decisions, each forced by something in the data:
 
 ![Consumer arrears sensitivity to the policy rate by bank](reports/figures/12_estres_bancos_tpm.png)
 
-BancoEstado (+0.15 pp per 100 bp), BCI (+0.12), Scotiabank (+0.10) and Itaú (+0.09) react three to ten times more than Bice (+0.02), Consorcio (+0.01) and Security (+0.03). The hypothesis that all banks share one coefficient is rejected by a wide margin (Cochran's Q = 94 on 9 df), although Q overstates the evidence because the banks share the same cycle. A plausible reading is that banks lending to higher-income clients are less exposed to rates, but I did not have client data to test it.
+BancoEstado (+0.15 pp per 100 bp), BCI (+0.12), Scotiabank (+0.10) and Itaú (+0.09) react three to ten times more than Bice (+0.02), Consorcio (+0.01) and Security (+0.03). The hypothesis that all banks share one coefficient is rejected by a wide margin (Cochran's Q = 94 on 9 df), although Q overstates the evidence because the banks share the same cycle. **Does the loan mix explain it?** The arrears files only give percentages, so I took each bank's loan book by portfolio from a second CMF source, the *Reporte Financiero Mensual* (sheet "Activos Bancos 2", December 2019–2025, both accounting layouts). The association is positive but weak, and none of it is significant with 10 banks:
+
+| Bank trait (2019–2025 average) | Spearman with rate sensitivity | Permutation p |
+|---|---|---|
+| Consumer loans / total loans | 0.55 | 0.11 |
+| Credit cards / consumer loans | 0.52 | 0.13 |
+| Current consumer arrears | 0.48 | 0.16 |
+
+BancoEstado (7.5% consumer) and BCI (8.0%) are the most sensitive banks with *less* consumer lending than Santander (14.5%) or Banco de Chile (13.9%), so the loan mix is not the explanation. A client-income channel is plausible but untested: the CMF does not publish borrower income by bank.
 
 **Scenarios**, all as 12-month shocks. The two historical ones replay the changes actually observed in the 12 months to that date:
 
@@ -216,6 +227,30 @@ Brackets are the 5th–95th percentiles. The base case rises about 0.15 pp becau
 - **Arrears × LGD × EAD is a loss on the delinquent stock, not a 12-month expected loss.** 90+ arrears are a stock ratio, not a default rate. The CLP figures show orders of magnitude only and are not a provisioning estimate.
 
 ![Stress scenarios by portfolio](reports/figures/10_estres_escenarios.png)
+
+### 8. Machine learning does not beat "no change" either; SHAP shows why
+
+Findings 4 to 6 used linear and exponential-smoothing models. Could a non-linear model do better at the bank level? `models/ml_shap.py` trains a LightGBM regressor on the 10 eligible banks to forecast each bank's change in arrears 3 and 6 months ahead. It uses the bank's own dynamics (level, 3/6/12-month changes, gap to the system), the system's momentum, and the macro known in that month (publication lags applied). At every origin from 2021 it is retrained only on outcomes already known, and compared with "no change" and with a pooled linear regression on the same features. MAE relative to no change, 95% block-bootstrap interval:
+
+| Portfolio | Horizon | Pooled linear | LightGBM |
+|---|---|---|---|
+| Consumer | 3 months | 1.66 [1.30, 2.02] | 1.52 [1.34, 1.71] |
+| Consumer | 6 months | 2.31 [1.37, 3.04] | 1.61 [1.38, 1.96] |
+| Total | 3 months | 1.09 [1.02, 1.19] | 1.02 [0.97, 1.08] |
+| Total | 6 months | 1.30 [1.01, 1.55] | 1.03 [0.93, 1.13] |
+
+- **Neither model beats no change.** For consumer arrears both are clearly worse. LightGBM is less bad than the linear model because the trees cannot extrapolate. For total arrears LightGBM ties with no change.
+- **Dropping the COVID window from training does not rescue it** (consumer at 6 months: 1.85). The early origins lose most of their training data.
+
+**SHAP** (TreeExplainer) decomposes each forecast exactly: base value + one contribution per feature = forecast (the additivity error is below 1e-9, and a test checks it).
+
+![Global SHAP summary](reports/figures/shap_summary.png)
+
+The audit finding is the ranking itself: the most important feature is the **level** of the policy rate, ahead of its change. In a sample with one tightening cycle, the rate level works as a clock that tells the model which regime it is in, not as a cause, and that is consistent with the model failing out of sample. The local explanation for BancoEstado in 2026-08 shows the same thing: of a forecast of −0.19 pp at 6 months, −0.15 pp comes from the rate and −0.15 pp from the bank's own dynamics.
+
+![Local SHAP explanation for BancoEstado](reports/figures/13_shap_local.png)
+
+SHAP explains what the model does, not what drives arrears. Here its main use is to show why a model that fits well in sample should not be deployed. The full output (global importance, one decomposition per bank, the backtest and the model parameters) is in `reports/shap_explanations.json`.
 
 ### Serving it: DuckDB warehouse and a REST API
 
@@ -239,6 +274,7 @@ curl -X POST localhost:8000/simulate/stress-test -H "content-type: application/j
 - **Entity histories are not fully comparable.** Names change in the source (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), the BBVA/Scotiabank Azul series ends in 2018-08 and Banco Security is no longer reported after 2025-10. I handle the renames I could identify in the files; I did not research the corporate transactions behind them.
 - **Macro data are not real-time vintages.** They come from a third-party aggregator and are the values available on the download date; later revisions would not be visible. The one-month publication lag I apply to unemployment and IMACEC is an assumption I did not check against the official calendars, and I only tried linear models.
 - **The stress model rests on 94 overlapping monthly observations** and one tightening-and-easing cycle, with no recession outside COVID. The lag and sign choices are themselves data-driven. The per-bank sensitivities come from the same short sample and use total consumer arrears, not loan-level data.
+- **The loan-mix test has 10 banks.** Spearman correlations on 10 points have very wide intervals, so "not significant" means "not shown", not "no effect". The loan mix uses December snapshots, not every month.
 - **The per-bank study covers 10 banks** chosen by data length and size, not all 24 entities, and it compares many intervals without correcting for it. A bank that looks predictable at one horizon is most likely noise.
 
 ## Run it
@@ -253,7 +289,7 @@ python -m cmf_delinquency.pipeline                   # downloads the 128 files a
 python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
 python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
-pytest                                               # 124 tests, no network
+pytest                                               # 137 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -271,11 +307,12 @@ src/cmf_delinquency/
   stress_test.py  satellite model (lag selection, sign restrictions, HAC), Monte Carlo scenarios, nested out-of-sample check, per-bank sensitivity
   warehouse.py  DuckDB warehouse built from the SQL models in sql/, with data-quality checks
   api.py        FastAPI service for the stress engine
+  models/ml_shap.py  LightGBM per-bank forecasts, rolling-origin backtest, SHAP explanations
   plots.py      figures
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          124 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+tests/          137 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
 Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 
