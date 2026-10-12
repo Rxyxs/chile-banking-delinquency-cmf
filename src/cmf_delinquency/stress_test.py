@@ -1,9 +1,9 @@
 """Prueba de tension macro de la mora bancaria: modelo satelite estimado con datos reales + Monte Carlo.
 
 El modelo satelite liga el cambio a 12 meses de la mora 90+ del sistema (por cartera) con el cambio a
-12 meses de la TPM y del desempleo y con el IMACEC anual, todos adelantados ``LAG`` meses:
+12 meses de la TPM y del desempleo y con el IMACEC anual, todos adelantados L meses:
 
-    d12 mora_t = a + b_tpm * d12 TPM_{t-6} + b_des * d12 desempleo_{t-6} + b_ima * IMACEC_{t-6} + e_t
+    d12 mora_t = a + b_tpm * d12 TPM_{t-L} + b_des * d12 desempleo_{t-L} + b_ima * IMACEC_{t-L} + e_t
 
 Decisiones y por que:
 
@@ -11,6 +11,12 @@ Decisiones y por que:
   desempleo subio y la mora bajo (reprogramaciones, retiros de AFP, ayudas fiscales): con la muestra
   completa el desempleo sale con signo negativo, que es un artefacto de politica y no la respuesta
   normal del credito. Un escenario adverso sin esas ayudas no deberia heredar ese signo.
+* **El rezago L se elige por cartera** entre 0, 3, 6, 9 y 12 meses (R2 ajustado sobre meses comunes).
+  En la validacion fuera de muestra se elige de nuevo en cada origen, solo con el pasado.
+* **Restricciones de signo.** Desempleo e IMACEC estan muy correlacionados (-0,77) y sus coeficientes
+  por separado pueden salir con el signo contrario al economico (mas desempleo -> menos mora). Un
+  modelo de estres con ese signo diria que una recesion baja la mora. Si un factor sale con signo
+  equivocado se elimina (coeficiente 0) y se reestima; el ajuste informa que factores elimino.
 * **Errores HAC (Newey-West, 12 rezagos).** Los cambios a 12 meses se solapan y los residuos estan
   autocorrelacionados; los errores de MCO subestimarian la incertidumbre de los coeficientes.
 * **Monte Carlo con dos fuentes de incertidumbre:** coeficientes (normal multivariada con la
@@ -42,6 +48,7 @@ PANEL_CSV = ROOT / "data" / "panel_mora90.csv"
 MACRO_CSV = ROOT / "data" / "macro_indicators.csv"
 
 LAG = 6
+LAG_CANDIDATES = (0, 3, 6, 9, 12)
 WINDOW = 12
 HAC_LAGS = 12
 FACTORS = ("d_tpm_pp", "d_unemployment_pp", "imacec_yoy_pct")
@@ -50,6 +57,8 @@ COVID_RELIEF = ("2020-03-01", "2021-12-01")
 LGD_MEAN = 0.45
 LGD_SD = 0.10
 MORA_BOUNDS = (0.0, 100.0)
+# Signo economico esperado: mas TPM o mas desempleo -> mas mora; mas actividad -> menos mora.
+EXPECTED_SIGN = {"d_tpm_pp": 1, "d_unemployment_pp": 1, "imacec_yoy_pct": -1}
 
 
 @dataclass(frozen=True)
@@ -83,6 +92,8 @@ class SatelliteFit:
     n_obs: int
     sample: tuple[str, str]
     factor_range: dict[str, tuple[float, float]]
+    lag: int = LAG
+    dropped: tuple[str, ...] = ()
 
     def predict(self, x: np.ndarray) -> float:
         return float(self.params.iloc[0] + self.params.iloc[1:].to_numpy() @ x)
@@ -104,24 +115,61 @@ def design(mora: pd.Series, macro: pd.DataFrame, lag: int = LAG, exclude_covid: 
     return out
 
 
+def _ols(data: pd.DataFrame, sign_restrict: bool, hac: bool):
+    """MCO eliminando, de a uno, el factor con signo equivocado y menor |t| hasta que todos cumplan."""
+    used = list(FACTORS)
+    kwargs = {"cov_type": "HAC", "cov_kwds": {"maxlags": HAC_LAGS}} if hac else {}
+    while True:
+        res = sm.OLS(data["y"], sm.add_constant(data[used], has_constant="add")).fit(**kwargs)
+        wrong = [f for f in used if np.sign(res.params[f]) == -EXPECTED_SIGN[f]] if sign_restrict else []
+        if not wrong:
+            return res, used
+        used.remove(min(wrong, key=lambda f: abs(res.tvalues[f])))
+
+
 def fit_satellite(mora: pd.Series, macro: pd.DataFrame, portfolio: str = "total", lag: int = LAG,
-                  exclude_covid: bool = True) -> SatelliteFit:
+                  exclude_covid: bool = True, sign_restrict: bool = True) -> SatelliteFit:
     data = design(mora, macro, lag, exclude_covid)
     if len(data) < 24:
         raise ValueError(f"Muy pocas observaciones para estimar ({len(data)}); se necesitan al menos 24")
-    X = sm.add_constant(data[list(FACTORS)])
-    res = sm.OLS(data["y"], X).fit(cov_type="HAC", cov_kwds={"maxlags": HAC_LAGS})
+    res, used = _ols(data, sign_restrict, hac=True)
+    # Los factores eliminados quedan con coeficiente 0 y varianza 0: prediccion y simulacion no cambian de forma.
+    names = ["const", *FACTORS]
+    params = res.params.reindex(names, fill_value=0.0)
+    cov = res.cov_params().reindex(index=names, columns=names, fill_value=0.0)
     return SatelliteFit(
         portfolio=portfolio,
-        params=res.params,
-        cov=res.cov_params(),
-        tvalues=res.tvalues,
+        params=params,
+        cov=cov,
+        tvalues=res.tvalues.reindex(names),
         residuals=res.resid.to_numpy(),
         r2=float(res.rsquared),
         n_obs=int(res.nobs),
         sample=(f"{data.index.min():%Y-%m}", f"{data.index.max():%Y-%m}"),
         factor_range={f: (float(data[f].min()), float(data[f].max())) for f in FACTORS},
+        lag=lag,
+        dropped=tuple(f for f in FACTORS if f not in used),
     )
+
+
+def select_lag(mora: pd.Series, macro: pd.DataFrame, candidates: tuple[int, ...] = LAG_CANDIDATES,
+               exclude_covid: bool = True, sign_restrict: bool = True) -> int:
+    """Rezago con mayor R2 ajustado, comparando todos los candidatos sobre los mismos meses.
+
+    Sin una muestra comun, los rezagos largos pierden las primeras observaciones y el R2 no seria
+    comparable. Se usa solo la informacion que recibe: dentro de un backtest, solo el pasado.
+    """
+    designs = {lag: design(mora, macro, lag, exclude_covid) for lag in candidates}
+    common = designs[candidates[0]].index
+    for d in designs.values():
+        common = common.intersection(d.index)
+    if len(common) < 24:
+        raise ValueError(f"Muy pocos meses comunes para elegir el rezago ({len(common)})")
+    scores = {}
+    for lag, d in designs.items():
+        d = d.loc[common]
+        scores[lag] = _ols(d, sign_restrict, hac=False)[0].rsquared_adj
+    return max(scores, key=scores.get)
 
 
 def beta_params(mean: float, sd: float) -> tuple[float, float]:
@@ -149,10 +197,15 @@ class CreditRiskStressEngine:
 
     @classmethod
     def from_data(cls, panel: pd.DataFrame, macro: pd.DataFrame, portfolios: tuple[str, ...] = PORTFOLIOS,
-                  lag: int = LAG, exclude_covid: bool = True) -> CreditRiskStressEngine:
+                  lag: int | None = None, exclude_covid: bool = True,
+                  sign_restrict: bool = True) -> CreditRiskStressEngine:
+        """``lag=None`` elige el rezago de cada cartera con ``select_lag``; un entero lo fija para todas."""
         sys_ = system_series(panel)
         last = sys_.index.max()
-        fits = {p: fit_satellite(sys_[p], macro, p, lag, exclude_covid) for p in portfolios}
+        fits = {}
+        for p in portfolios:
+            p_lag = select_lag(sys_[p], macro, exclude_covid=exclude_covid, sign_restrict=sign_restrict) if lag is None else lag
+            fits[p] = fit_satellite(sys_[p], macro, p, p_lag, exclude_covid, sign_restrict)
         row = sys_.loc[last]
         ead = float(implied_loans(pd.DataFrame({"total": [row["total"]], "mora90_mm": [row["mora90_mm"]]})).iloc[0])
         return cls(
@@ -171,7 +224,8 @@ class CreditRiskStressEngine:
     def out_of_range(self, scenario: StressScenario, portfolio: str = "total") -> list[str]:
         """Factores del escenario que caen fuera de lo observado en la muestra (extrapolacion)."""
         fit = self.fits[portfolio]
-        return [f for f, v in zip(FACTORS, scenario.factors()) if not fit.factor_range[f][0] <= v <= fit.factor_range[f][1]]
+        return [f for f, v in zip(FACTORS, scenario.factors())
+                if f not in fit.dropped and not fit.factor_range[f][0] <= v <= fit.factor_range[f][1]]
 
     def simulate(self, scenario: StressScenario, portfolio: str = "total", n_sims: int = 10_000,
                  seed: int | None = 42, lgd_mean: float | None = None, lgd_sd: float | None = None) -> dict:
@@ -203,6 +257,7 @@ class CreditRiskStressEngine:
             "p99_mora_pct": float(np.percentile(stressed, 99)),
             "prob_increase": float((stressed > current).mean()),
             "out_of_sample_range": self.out_of_range(scenario, portfolio),
+            "factors_dropped": list(fit.dropped),
         }
         if portfolio == "total":
             a, b = beta_params(lgd_mean if lgd_mean is not None else self.lgd_mean,
@@ -230,7 +285,7 @@ class CreditRiskStressEngine:
     def summary(self) -> pd.DataFrame:
         rows = []
         for p, f in self.fits.items():
-            row = {"cartera": p, "n": f.n_obs, "r2": f.r2, "desde": f.sample[0], "hasta": f.sample[1]}
+            row = {"cartera": p, "rezago": f.lag, "eliminados": ",".join(f.dropped), "n": f.n_obs, "r2": f.r2, "desde": f.sample[0], "hasta": f.sample[1]}
             for k in FACTORS:
                 row[k] = float(f.params[k])
                 row[f"t_{k}"] = float(f.tvalues[k])
@@ -267,6 +322,7 @@ def stress_grid(macro: pd.DataFrame, panel: pd.DataFrame | None = None, n_sims: 
             r = engine.simulate(sc, p, n_sims=n_sims, seed=seed)
             r["tpm_shock_bp"], r["unemployment_delta_pp"], r["imacec_growth"] = sc.tpm_shock_bp, sc.unemployment_delta_pp, sc.imacec_growth
             r["out_of_sample_range"] = ",".join(r["out_of_sample_range"])
+            r["factors_dropped"] = ",".join(r["factors_dropped"])
             rows.append(r)
     out = pd.DataFrame(rows)
     base = out[out["scenario_name"] == out["scenario_name"].iloc[0]].set_index("portfolio")
@@ -275,32 +331,71 @@ def stress_grid(macro: pd.DataFrame, panel: pd.DataFrame | None = None, n_sims: 
     return out
 
 
-def conditional_backtest(mora: pd.Series, macro: pd.DataFrame, start: str = "2023-01-01", lag: int = LAG) -> pd.DataFrame:
+def conditional_backtest(mora: pd.Series, macro: pd.DataFrame, start: str = "2023-01-01", lag: int | None = None) -> pd.DataFrame:
     """Validacion fuera de muestra del modelo condicional.
 
     Para cada mes ``t`` desde ``start`` se estima con datos hasta ``t-12`` (asi ningun cambio a 12
     meses usado en la estimacion se solapa con el que se predice) y se predice el cambio a 12 meses
     de la mora con la macro efectivamente observada. Se compara con "la mora no cambia" (delta 0).
     Es lo que hace una prueba de tension: si los shocks hubieran sido conocidos, cuanto se acierta.
+
+    Con ``lag=None`` el rezago tambien se elige en cada origen con datos hasta ``t-12``. Fijar el
+    rezago despues de mirar toda la muestra filtra informacion del futuro y hace ver mejor al modelo.
     """
-    full = design(mora, macro, lag, exclude_covid=False)
+    targets = design(mora, macro, LAG, exclude_covid=False).index
+    full = {k: design(mora, macro, k, exclude_covid=False) for k in (LAG_CANDIDATES if lag is None else (lag,))}
     rows = []
-    for t in full.index[full.index >= pd.Timestamp(start)]:
+    for t in targets[targets >= pd.Timestamp(start)]:
         cutoff = t - pd.DateOffset(months=WINDOW)
-        fit = fit_satellite(mora.loc[:cutoff], macro.loc[:cutoff], lag=lag)
-        x = full.loc[t, list(FACTORS)].to_numpy(dtype=float)
-        rows.append({"date": t, "actual": float(full.at[t, "y"]), "pred": fit.predict(x)})
+        past_mora, past_macro = mora.loc[:cutoff], macro.loc[:cutoff]
+        k = select_lag(past_mora, past_macro) if lag is None else lag
+        if t not in full[k].index:
+            continue
+        fit = fit_satellite(past_mora, past_macro, lag=k)
+        x = full[k].loc[t, list(FACTORS)].to_numpy(dtype=float)
+        rows.append({"date": t, "lag": k, "actual": float(full[k].at[t, "y"]), "pred": fit.predict(x)})
     out = pd.DataFrame(rows).set_index("date")
     out["err_model"] = out["actual"] - out["pred"]
     out["err_naive"] = out["actual"]
     return out
 
 
+def lag_sensitivity(mora: pd.Series, macro: pd.DataFrame, start: str = "2023-01-01") -> dict[str, float]:
+    """MAE fuera de muestra relativo a "sin cambio" para cada rezago fijo y para el elegido en cada origen."""
+    out = {}
+    for k in (*LAG_CANDIDATES, None):
+        bt = conditional_backtest(mora, macro, start, lag=k)
+        out["elegido" if k is None else f"rezago_{k}"] = float(bt["err_model"].abs().mean() / bt["err_naive"].abs().mean())
+    return out
+
+
+def bank_sensitivity(wide: pd.DataFrame, macro: pd.DataFrame, lag: int, min_obs: int = 40) -> tuple[pd.DataFrame, dict]:
+    """Modelo satelite banco por banco (columnas de ``wide``) y prueba de que todos comparten el coeficiente TPM.
+
+    La Q de Cochran asume estimaciones independientes; los bancos comparten el ciclo, asi que la Q
+    exagera la evidencia de heterogeneidad. Sirve para ordenar bancos, no como prueba formal.
+    """
+    rows = []
+    for bank in wide.columns:
+        data = design(wide[bank].dropna(), macro, lag)
+        if len(data) < min_obs:
+            continue
+        res = sm.OLS(data["y"], sm.add_constant(data[list(FACTORS)])).fit(cov_type="HAC", cov_kwds={"maxlags": HAC_LAGS})
+        b, se = float(res.params["d_tpm_pp"]), float(res.bse["d_tpm_pp"])
+        rows.append({"bank": bank, "n": int(res.nobs), "beta_tpm": b, "se": se, "lo": b - 1.96 * se, "hi": b + 1.96 * se,
+                     "r2": float(res.rsquared), "mora_actual": float(wide[bank].dropna().iloc[-1])})
+    table = pd.DataFrame(rows).sort_values("beta_tpm", ascending=False).set_index("bank")
+    w = 1 / table["se"] ** 2
+    pooled = float((w * table["beta_tpm"]).sum() / w.sum())
+    q = float((w * (table["beta_tpm"] - pooled) ** 2).sum())
+    return table, {"beta_combinado": pooled, "q_cochran": q, "gl": int(len(table) - 1), "rezago": lag}
+
+
 def main() -> None:
     engine = CreditRiskStressEngine.from_csv()
     macro = pd.read_csv(MACRO_CSV, parse_dates=["month"]).set_index("month")
     print(f"Calibrado con datos hasta {engine.as_of}; EAD (colocaciones implicitas) = ${engine.ead_mm:,.0f} MM")
-    print(engine.summary()[["n", "r2", *FACTORS]].round(3).to_string())
+    print(engine.summary()[["rezago", "n", "r2", *FACTORS]].round(3).to_string())
     for sc in default_scenarios(macro):
         r = engine.simulate(sc)
         print(f"\n=== {r['scenario_name']} ===  (TPM {sc.tpm_shock_bp:+.0f} pb, "

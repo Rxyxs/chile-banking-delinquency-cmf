@@ -604,7 +604,12 @@
   },
   "estres": {
     "datos_hasta": "2026-08",
-    "rezago_meses": 6,
+    "rezago_meses": {
+      "total": 9,
+      "comercial": 12,
+      "consumo": 9,
+      "vivienda": 3
+    },
     "excluido_de_estimacion": [
       "2020-03-01",
       "2021-12-01"
@@ -617,55 +622,63 @@
     "satelite": [
       {
         "cartera": "total",
+        "rezago": 9,
+        "eliminados": "d_unemployment_pp",
         "n": 94,
-        "r2": 0.4587,
+        "r2": 0.5693,
         "desde": "2017-01",
         "hasta": "2026-08",
-        "d_tpm_pp": 0.0262,
-        "t_d_tpm_pp": 1.9019,
-        "d_unemployment_pp": 0.0158,
-        "t_d_unemployment_pp": 0.3961,
-        "imacec_yoy_pct": -0.028,
-        "t_imacec_yoy_pct": -2.8312
+        "d_tpm_pp": 0.0386,
+        "t_d_tpm_pp": 4.1729,
+        "d_unemployment_pp": 0.0,
+        "t_d_unemployment_pp": null,
+        "imacec_yoy_pct": -0.0222,
+        "t_imacec_yoy_pct": -4.6441
       },
       {
         "cartera": "comercial",
+        "rezago": 12,
+        "eliminados": "d_unemployment_pp",
         "n": 94,
-        "r2": 0.4446,
+        "r2": 0.6672,
         "desde": "2017-01",
         "hasta": "2026-08",
-        "d_tpm_pp": 0.0333,
-        "t_d_tpm_pp": 2.3774,
-        "d_unemployment_pp": 0.0371,
-        "t_d_unemployment_pp": 0.963,
-        "imacec_yoy_pct": -0.0243,
-        "t_imacec_yoy_pct": -2.3509
+        "d_tpm_pp": 0.0592,
+        "t_d_tpm_pp": 10.3487,
+        "d_unemployment_pp": 0.0,
+        "t_d_unemployment_pp": null,
+        "imacec_yoy_pct": -0.0088,
+        "t_imacec_yoy_pct": -1.8162
       },
       {
         "cartera": "consumo",
+        "rezago": 9,
+        "eliminados": "d_unemployment_pp,imacec_yoy_pct",
         "n": 94,
-        "r2": 0.81,
+        "r2": 0.8019,
         "desde": "2017-01",
         "hasta": "2026-08",
-        "d_tpm_pp": 0.0871,
-        "t_d_tpm_pp": 11.3455,
-        "d_unemployment_pp": -0.0629,
-        "t_d_unemployment_pp": -1.3503,
-        "imacec_yoy_pct": -0.036,
-        "t_imacec_yoy_pct": -3.0979
+        "d_tpm_pp": 0.0952,
+        "t_d_tpm_pp": 9.4083,
+        "d_unemployment_pp": 0.0,
+        "t_d_unemployment_pp": null,
+        "imacec_yoy_pct": 0.0,
+        "t_imacec_yoy_pct": null
       },
       {
         "cartera": "vivienda",
+        "rezago": 3,
+        "eliminados": "d_tpm_pp",
         "n": 94,
-        "r2": 0.1718,
+        "r2": 0.1785,
         "desde": "2017-01",
         "hasta": "2026-08",
-        "d_tpm_pp": 0.0025,
-        "t_d_tpm_pp": 0.0991,
-        "d_unemployment_pp": 0.0061,
-        "t_d_unemployment_pp": 0.0917,
-        "imacec_yoy_pct": -0.0297,
-        "t_imacec_yoy_pct": -1.6209
+        "d_tpm_pp": 0.0,
+        "t_d_tpm_pp": null,
+        "d_unemployment_pp": 0.0754,
+        "t_d_unemployment_pp": 1.3568,
+        "imacec_yoy_pct": -0.0208,
+        "t_imacec_yoy_pct": -1.2783
       }
     ],
     "escenarios": [
@@ -676,15 +689,16 @@
         "unemployment_delta_pp": 0.0,
         "imacec_growth": 2.0,
         "current_mora_pct": 2.4424,
-        "mean_mora_pct": 2.5994,
-        "p05_mora_pct": 2.3628,
-        "p95_mora_pct": 2.9526,
-        "p99_mora_pct": 3.0765,
+        "mean_mora_pct": 2.594,
+        "p05_mora_pct": 2.3798,
+        "p95_mora_pct": 2.9169,
+        "p99_mora_pct": 3.0137,
         "mean_vs_base_pp": 0.0,
-        "mean_extra_loss_mm": 176629.5468,
-        "var99_extra_loss_mm": 793759.8366,
+        "mean_extra_loss_mm": 170436.8082,
+        "var99_extra_loss_mm": 719106.9147,
         "extra_loss_vs_base_mm": 0.0,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Base: sin cambios",
@@ -693,15 +707,16 @@
         "unemployment_delta_pp": 0.0,
         "imacec_growth": 2.0,
         "current_mora_pct": 2.3444,
-        "mean_mora_pct": 2.5021,
-        "p05_mora_pct": 2.2151,
-        "p95_mora_pct": 2.9014,
-        "p99_mora_pct": 3.0451,
+        "mean_mora_pct": 2.4707,
+        "p05_mora_pct": 2.2443,
+        "p95_mora_pct": 2.7546,
+        "p99_mora_pct": 2.8775,
         "mean_vs_base_pp": 0.0,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Base: sin cambios",
@@ -710,15 +725,16 @@
         "unemployment_delta_pp": 0.0,
         "imacec_growth": 2.0,
         "current_mora_pct": 2.3471,
-        "mean_mora_pct": 2.4774,
-        "p05_mora_pct": 2.2328,
-        "p95_mora_pct": 2.8128,
-        "p99_mora_pct": 2.8822,
+        "mean_mora_pct": 2.4524,
+        "p05_mora_pct": 2.1847,
+        "p95_mora_pct": 2.7645,
+        "p99_mora_pct": 2.8287,
         "mean_vs_base_pp": 0.0,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp,imacec_yoy_pct"
       },
       {
         "scenario_name": "Base: sin cambios",
@@ -727,15 +743,16 @@
         "unemployment_delta_pp": 0.0,
         "imacec_growth": 2.0,
         "current_mora_pct": 2.6471,
-        "mean_mora_pct": 2.7951,
-        "p05_mora_pct": 2.2483,
-        "p95_mora_pct": 3.2321,
-        "p99_mora_pct": 3.3485,
+        "mean_mora_pct": 2.7816,
+        "p05_mora_pct": 2.2556,
+        "p95_mora_pct": 3.2173,
+        "p99_mora_pct": 3.3185,
         "mean_vs_base_pp": 0.0,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_tpm_pp"
       },
       {
         "scenario_name": "Histórico: ciclo de alzas 2022",
@@ -744,15 +761,16 @@
         "unemployment_delta_pp": 0.67,
         "imacec_growth": -1.0,
         "current_mora_pct": 2.4424,
-        "mean_mora_pct": 2.8822,
-        "p05_mora_pct": 2.6025,
-        "p95_mora_pct": 3.2463,
-        "p99_mora_pct": 3.3888,
-        "mean_vs_base_pp": 0.2828,
-        "mean_extra_loss_mm": 495471.0253,
-        "var99_extra_loss_mm": 1217423.7077,
-        "extra_loss_vs_base_mm": 318841.4785,
-        "out_of_sample_range": ""
+        "mean_mora_pct": 2.9398,
+        "p05_mora_pct": 2.7233,
+        "p95_mora_pct": 3.2633,
+        "p99_mora_pct": 3.3546,
+        "mean_vs_base_pp": 0.3458,
+        "mean_extra_loss_mm": 560309.1693,
+        "var99_extra_loss_mm": 1203009.3545,
+        "extra_loss_vs_base_mm": 389872.3611,
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Histórico: ciclo de alzas 2022",
@@ -761,15 +779,16 @@
         "unemployment_delta_pp": 0.67,
         "imacec_growth": -1.0,
         "current_mora_pct": 2.3444,
-        "mean_mora_pct": 2.8405,
-        "p05_mora_pct": 2.5323,
-        "p95_mora_pct": 3.2366,
-        "p99_mora_pct": 3.3975,
-        "mean_vs_base_pp": 0.3384,
+        "mean_mora_pct": 2.9254,
+        "p05_mora_pct": 2.6928,
+        "p95_mora_pct": 3.2152,
+        "p99_mora_pct": 3.3394,
+        "mean_vs_base_pp": 0.4547,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Histórico: ciclo de alzas 2022",
@@ -778,15 +797,16 @@
         "unemployment_delta_pp": 0.67,
         "imacec_growth": -1.0,
         "current_mora_pct": 2.3471,
-        "mean_mora_pct": 3.1752,
-        "p05_mora_pct": 2.9282,
-        "p95_mora_pct": 3.5124,
-        "p99_mora_pct": 3.5825,
-        "mean_vs_base_pp": 0.6978,
+        "mean_mora_pct": 3.144,
+        "p05_mora_pct": 2.8462,
+        "p95_mora_pct": 3.4703,
+        "p99_mora_pct": 3.5794,
+        "mean_vs_base_pp": 0.6916,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp,imacec_yoy_pct"
       },
       {
         "scenario_name": "Histórico: ciclo de alzas 2022",
@@ -795,15 +815,16 @@
         "unemployment_delta_pp": 0.67,
         "imacec_growth": -1.0,
         "current_mora_pct": 2.6471,
-        "mean_mora_pct": 2.903,
-        "p05_mora_pct": 2.3172,
-        "p95_mora_pct": 3.394,
-        "p99_mora_pct": 3.5507,
-        "mean_vs_base_pp": 0.1079,
+        "mean_mora_pct": 2.8949,
+        "p05_mora_pct": 2.3652,
+        "p95_mora_pct": 3.3405,
+        "p99_mora_pct": 3.4623,
+        "mean_vs_base_pp": 0.1133,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_tpm_pp"
       },
       {
         "scenario_name": "Histórico: desaceleración 2016",
@@ -812,15 +833,16 @@
         "unemployment_delta_pp": 0.3,
         "imacec_growth": 1.2,
         "current_mora_pct": 2.4424,
-        "mean_mora_pct": 2.6263,
-        "p05_mora_pct": 2.3841,
-        "p95_mora_pct": 2.9811,
-        "p99_mora_pct": 3.1055,
-        "mean_vs_base_pp": 0.027,
-        "mean_extra_loss_mm": 207044.7746,
-        "var99_extra_loss_mm": 832274.7352,
-        "extra_loss_vs_base_mm": 30415.2277,
-        "out_of_sample_range": ""
+        "mean_mora_pct": 2.6119,
+        "p05_mora_pct": 2.3943,
+        "p95_mora_pct": 2.9361,
+        "p99_mora_pct": 3.0346,
+        "mean_vs_base_pp": 0.0178,
+        "mean_extra_loss_mm": 190546.0423,
+        "var99_extra_loss_mm": 748944.8784,
+        "extra_loss_vs_base_mm": 20109.234,
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Histórico: desaceleración 2016",
@@ -829,15 +851,16 @@
         "unemployment_delta_pp": 0.3,
         "imacec_growth": 1.2,
         "current_mora_pct": 2.3444,
-        "mean_mora_pct": 2.5326,
-        "p05_mora_pct": 2.2406,
-        "p95_mora_pct": 2.9325,
-        "p99_mora_pct": 3.0766,
-        "mean_vs_base_pp": 0.0304,
+        "mean_mora_pct": 2.4777,
+        "p05_mora_pct": 2.2491,
+        "p95_mora_pct": 2.764,
+        "p99_mora_pct": 2.8861,
+        "mean_vs_base_pp": 0.007,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Histórico: desaceleración 2016",
@@ -846,15 +869,16 @@
         "unemployment_delta_pp": 0.3,
         "imacec_growth": 1.2,
         "current_mora_pct": 2.3471,
-        "mean_mora_pct": 2.4872,
-        "p05_mora_pct": 2.2407,
-        "p95_mora_pct": 2.8217,
-        "p99_mora_pct": 2.896,
-        "mean_vs_base_pp": 0.0098,
+        "mean_mora_pct": 2.4524,
+        "p05_mora_pct": 2.1847,
+        "p95_mora_pct": 2.7645,
+        "p99_mora_pct": 2.8287,
+        "mean_vs_base_pp": 0.0,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp,imacec_yoy_pct"
       },
       {
         "scenario_name": "Histórico: desaceleración 2016",
@@ -863,15 +887,16 @@
         "unemployment_delta_pp": 0.3,
         "imacec_growth": 1.2,
         "current_mora_pct": 2.6471,
-        "mean_mora_pct": 2.8204,
-        "p05_mora_pct": 2.274,
-        "p95_mora_pct": 3.2618,
-        "p99_mora_pct": 3.3824,
-        "mean_vs_base_pp": 0.0253,
+        "mean_mora_pct": 2.8208,
+        "p05_mora_pct": 2.2925,
+        "p95_mora_pct": 3.2601,
+        "p99_mora_pct": 3.3712,
+        "mean_vs_base_pp": 0.0392,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": ""
+        "out_of_sample_range": "",
+        "factors_dropped": "d_tpm_pp"
       },
       {
         "scenario_name": "Hipotético: alza de tasas con recesión",
@@ -880,15 +905,16 @@
         "unemployment_delta_pp": 2.0,
         "imacec_growth": -3.0,
         "current_mora_pct": 2.4424,
-        "mean_mora_pct": 2.8478,
-        "p05_mora_pct": 2.5645,
-        "p95_mora_pct": 3.2141,
-        "p99_mora_pct": 3.36,
-        "mean_vs_base_pp": 0.2484,
-        "mean_extra_loss_mm": 456727.0979,
-        "var99_extra_loss_mm": 1178392.6403,
-        "extra_loss_vs_base_mm": 280097.5511,
-        "out_of_sample_range": "d_unemployment_pp,imacec_yoy_pct"
+        "mean_mora_pct": 2.8209,
+        "p05_mora_pct": 2.6018,
+        "p95_mora_pct": 3.1442,
+        "p99_mora_pct": 3.2423,
+        "mean_vs_base_pp": 0.2268,
+        "mean_extra_loss_mm": 426242.0313,
+        "var99_extra_loss_mm": 1046370.1324,
+        "extra_loss_vs_base_mm": 255805.2231,
+        "out_of_sample_range": "imacec_yoy_pct",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Hipotético: alza de tasas con recesión",
@@ -897,15 +923,16 @@
         "unemployment_delta_pp": 2.0,
         "imacec_growth": -3.0,
         "current_mora_pct": 2.3444,
-        "mean_mora_pct": 2.7965,
-        "p05_mora_pct": 2.4835,
-        "p95_mora_pct": 3.2034,
-        "p99_mora_pct": 3.3533,
-        "mean_vs_base_pp": 0.2944,
+        "mean_mora_pct": 2.6919,
+        "p05_mora_pct": 2.454,
+        "p95_mora_pct": 2.9842,
+        "p99_mora_pct": 3.1075,
+        "mean_vs_base_pp": 0.2212,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": "d_unemployment_pp,imacec_yoy_pct"
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp"
       },
       {
         "scenario_name": "Hipotético: alza de tasas con recesión",
@@ -914,15 +941,16 @@
         "unemployment_delta_pp": 2.0,
         "imacec_growth": -3.0,
         "current_mora_pct": 2.3471,
-        "mean_mora_pct": 2.7925,
-        "p05_mora_pct": 2.5274,
-        "p95_mora_pct": 3.1317,
-        "p99_mora_pct": 3.2265,
-        "mean_vs_base_pp": 0.3151,
+        "mean_mora_pct": 2.7386,
+        "p05_mora_pct": 2.4645,
+        "p95_mora_pct": 3.0531,
+        "p99_mora_pct": 3.1316,
+        "mean_vs_base_pp": 0.2862,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": "d_unemployment_pp,imacec_yoy_pct"
+        "out_of_sample_range": "",
+        "factors_dropped": "d_unemployment_pp,imacec_yoy_pct"
       },
       {
         "scenario_name": "Hipotético: alza de tasas con recesión",
@@ -931,42 +959,208 @@
         "unemployment_delta_pp": 2.0,
         "imacec_growth": -3.0,
         "current_mora_pct": 2.6471,
-        "mean_mora_pct": 2.9602,
-        "p05_mora_pct": 2.3881,
-        "p95_mora_pct": 3.4422,
-        "p99_mora_pct": 3.587,
-        "mean_vs_base_pp": 0.1651,
+        "mean_mora_pct": 3.0361,
+        "p05_mora_pct": 2.489,
+        "p95_mora_pct": 3.5164,
+        "p99_mora_pct": 3.6692,
+        "mean_vs_base_pp": 0.2545,
         "mean_extra_loss_mm": null,
         "var99_extra_loss_mm": null,
         "extra_loss_vs_base_mm": null,
-        "out_of_sample_range": "d_unemployment_pp,imacec_yoy_pct"
+        "out_of_sample_range": "d_unemployment_pp",
+        "factors_dropped": "d_tpm_pp"
       }
     ],
     "validacion_condicional": {
       "total": {
         "n": 44,
-        "mae_model_pp": 0.3417,
+        "mae_model_pp": 0.3249,
         "mae_no_change_pp": 0.2896,
-        "rmae": 1.1799
+        "rmae": 1.1219,
+        "rezagos_elegidos": {
+          "9": 19,
+          "0": 12,
+          "12": 11,
+          "6": 2
+        }
       },
       "comercial": {
         "n": 44,
-        "mae_model_pp": 0.4374,
+        "mae_model_pp": 0.2808,
         "mae_no_change_pp": 0.331,
-        "rmae": 1.3213
+        "rmae": 0.8484,
+        "rezagos_elegidos": {
+          "9": 39,
+          "12": 3,
+          "6": 2
+        }
       },
       "consumo": {
         "n": 44,
-        "mae_model_pp": 0.2009,
+        "mae_model_pp": 0.2648,
         "mae_no_change_pp": 0.3613,
-        "rmae": 0.5559
+        "rmae": 0.7329,
+        "rezagos_elegidos": {
+          "6": 22,
+          "9": 18,
+          "12": 4
+        }
       },
       "vivienda": {
         "n": 44,
-        "mae_model_pp": 0.4992,
+        "mae_model_pp": 0.6084,
         "mae_no_change_pp": 0.3964,
-        "rmae": 1.2593
+        "rmae": 1.5349,
+        "rezagos_elegidos": {
+          "12": 16,
+          "3": 10,
+          "6": 8,
+          "0": 6,
+          "9": 4
+        }
       }
+    },
+    "sensibilidad_rezago": {
+      "total": {
+        "rezago_0": 1.2016,
+        "rezago_3": 1.1973,
+        "rezago_6": 1.1328,
+        "rezago_9": 0.8949,
+        "rezago_12": 0.7363,
+        "elegido": 1.1219
+      },
+      "comercial": {
+        "rezago_0": 1.2043,
+        "rezago_3": 1.1371,
+        "rezago_6": 1.0204,
+        "rezago_9": 0.8372,
+        "rezago_12": 0.5696,
+        "elegido": 0.8484
+      },
+      "consumo": {
+        "rezago_0": 1.2674,
+        "rezago_3": 1.0418,
+        "rezago_6": 0.5316,
+        "rezago_9": 0.7046,
+        "rezago_12": 1.1209,
+        "elegido": 0.7329
+      },
+      "vivienda": {
+        "rezago_0": 1.2178,
+        "rezago_3": 1.2772,
+        "rezago_6": 1.2395,
+        "rezago_9": 1.2892,
+        "rezago_12": 1.3883,
+        "elegido": 1.5349
+      }
+    },
+    "bancos_consumo_tpm": {
+      "beta_combinado": 0.0474,
+      "q_cochran": 93.8588,
+      "gl": 9,
+      "rezago": 9,
+      "bancos": [
+        {
+          "bank": "Banco del Estado de Chile",
+          "n": 94,
+          "beta_tpm": 0.1533,
+          "se": 0.0236,
+          "lo": 0.107,
+          "hi": 0.1995,
+          "r2": 0.5536,
+          "mora_actual": 3.2577
+        },
+        {
+          "bank": "Banco de Crédito e Inversiones",
+          "n": 94,
+          "beta_tpm": 0.1162,
+          "se": 0.0182,
+          "lo": 0.0806,
+          "hi": 0.1518,
+          "r2": 0.731,
+          "mora_actual": 2.1121
+        },
+        {
+          "bank": "Scotiabank Chile",
+          "n": 94,
+          "beta_tpm": 0.0992,
+          "se": 0.0149,
+          "lo": 0.07,
+          "hi": 0.1284,
+          "r2": 0.7136,
+          "mora_actual": 2.2499
+        },
+        {
+          "bank": "Banco Itaú Chile",
+          "n": 91,
+          "beta_tpm": 0.0932,
+          "se": 0.0112,
+          "lo": 0.0712,
+          "hi": 0.1153,
+          "r2": 0.4972,
+          "mora_actual": 2.5772
+        },
+        {
+          "bank": "Banco de Chile",
+          "n": 94,
+          "beta_tpm": 0.0584,
+          "se": 0.0095,
+          "lo": 0.0398,
+          "hi": 0.0771,
+          "r2": 0.6361,
+          "mora_actual": 2.2181
+        },
+        {
+          "bank": "Banco Santander-Chile",
+          "n": 94,
+          "beta_tpm": 0.0372,
+          "se": 0.012,
+          "lo": 0.0136,
+          "hi": 0.0607,
+          "r2": 0.4441,
+          "mora_actual": 2.2431
+        },
+        {
+          "bank": "Banco Security",
+          "n": 84,
+          "beta_tpm": 0.0327,
+          "se": 0.0072,
+          "lo": 0.0186,
+          "hi": 0.0469,
+          "r2": 0.3888,
+          "mora_actual": 1.5288
+        },
+        {
+          "bank": "Banco Bice",
+          "n": 94,
+          "beta_tpm": 0.0245,
+          "se": 0.0082,
+          "lo": 0.0084,
+          "hi": 0.0405,
+          "r2": 0.1969,
+          "mora_actual": 1.3568
+        },
+        {
+          "bank": "Banco Consorcio",
+          "n": 94,
+          "beta_tpm": 0.014,
+          "se": 0.0093,
+          "lo": -0.0042,
+          "hi": 0.0322,
+          "r2": 0.114,
+          "mora_actual": 1.4754
+        },
+        {
+          "bank": "Banco Internacional",
+          "n": 94,
+          "beta_tpm": -0.0835,
+          "se": 0.0685,
+          "lo": -0.2178,
+          "hi": 0.0508,
+          "r2": 0.0283,
+          "mora_actual": 2.3103
+        }
+      ]
     }
   },
   "backtest": {

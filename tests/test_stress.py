@@ -164,3 +164,62 @@ def test_conditional_backtest_never_trains_on_overlapping_changes(panel, macro_r
     b = S.conditional_backtest(mora, macro_real, start="2025-06-01")
     assert len(b) > 0
     np.testing.assert_allclose(b["err_model"], b["actual"] - b["pred"])
+
+
+# ------------------------------------------------------------------------------- robustez
+def test_sign_restriction_drops_a_wrong_signed_factor():
+    """Si el desempleo baja la mora en los datos, el modelo de estres lo elimina en vez de usarlo."""
+    mora, macro = _synthetic(coefs=(0.05, -0.10, -0.03))
+    free = S.fit_satellite(mora, macro, exclude_covid=False, sign_restrict=False)
+    assert free.params["d_unemployment_pp"] < 0 and free.dropped == ()
+    fit = S.fit_satellite(mora, macro, exclude_covid=False)
+    assert fit.dropped == ("d_unemployment_pp",)
+    assert fit.params["d_unemployment_pp"] == 0 and fit.cov.loc["d_unemployment_pp"].abs().sum() == 0
+    assert fit.params["d_tpm_pp"] > 0 and fit.params["imacec_yoy_pct"] < 0
+
+
+def test_dropped_factors_do_not_move_the_simulation(engine):
+    fit = engine.fits["consumo"]
+    assert "d_unemployment_pp" in fit.dropped
+    a = engine.simulate(S.StressScenario("a", 100, 0.0, 2.0), "consumo", n_sims=1000)
+    b = engine.simulate(S.StressScenario("b", 100, 5.0, 2.0), "consumo", n_sims=1000)
+    assert a["mean_mora_pct"] == b["mean_mora_pct"] and a["factors_dropped"] == list(fit.dropped)
+
+
+def test_select_lag_recovers_the_true_lag():
+    rng = np.random.default_rng(3)
+    n, true_lag = 170, 9
+    idx = _months(n)
+    macro = pd.DataFrame({"tpm_pct": np.cumsum(rng.normal(0, 0.5, n)) + 5, "unemployment_pct": 8 + rng.normal(0, 0.1, n),
+                          "imacec_yoy_pct": rng.normal(2, 0.5, n)}, index=idx)
+    d12 = 0.3 * macro["tpm_pct"].diff(12).shift(true_lag).fillna(0).to_numpy() + rng.normal(0, 0.02, n)
+    mora = np.full(n, 2.0)
+    for t in range(12, n):
+        mora[t] = mora[t - 12] + d12[t]
+    assert S.select_lag(pd.Series(mora, index=idx), macro) == true_lag
+
+
+def test_nested_backtest_chooses_the_lag_with_past_data_only(panel, macro_real):
+    mora = A.system_series(panel)["consumo"]
+    b = S.conditional_backtest(mora, macro_real, start="2025-06-01")
+    assert set(b["lag"]) <= set(S.LAG_CANDIDATES)
+    t = b.index[0]
+    cutoff = t - pd.DateOffset(months=S.WINDOW)
+    assert b.at[t, "lag"] == S.select_lag(mora.loc[:cutoff], macro_real.loc[:cutoff])
+
+
+def test_lag_sensitivity_reports_every_candidate(panel, macro_real):
+    out = S.lag_sensitivity(A.system_series(panel)["consumo"], macro_real, start="2026-01-01")
+    assert set(out) == {f"rezago_{k}" for k in S.LAG_CANDIDATES} | {"elegido"}
+    assert all(v > 0 for v in out.values())
+
+
+def test_bank_sensitivity_and_cochran_q():
+    mora, macro = _synthetic(coefs=(0.05, 0.0, -0.03))
+    mora2, _ = _synthetic(coefs=(0.20, 0.0, -0.03))  # misma macro, otra sensibilidad
+    wide = pd.DataFrame({"lento": mora, "rapido": mora2})
+    table, het = S.bank_sensitivity(wide, macro, lag=S.LAG)
+    assert list(table.index) == ["rapido", "lento"]
+    assert table.loc["rapido", "lo"] < table.loc["rapido", "beta_tpm"] < table.loc["rapido", "hi"]
+    assert het["gl"] == 1 and het["q_cochran"] > 3.84
+    assert table["beta_tpm"].min() <= het["beta_combinado"] <= table["beta_tpm"].max()

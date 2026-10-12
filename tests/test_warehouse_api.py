@@ -76,7 +76,8 @@ def test_health(client):
 
 def test_model_and_scenarios(client):
     model = client.get("/model").json()
-    assert model["lag_months"] == S.LAG and len(model["fits"]) == 4
+    assert set(model["lag_months"]) == {"total", "comercial", "consumo", "vivienda"} and len(model["fits"]) == 4
+    assert all(lag in S.LAG_CANDIDATES for lag in model["lag_months"].values())
     assert len(client.get("/scenarios").json()) >= 3
 
 

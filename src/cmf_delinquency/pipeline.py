@@ -141,27 +141,39 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
     grid = S.stress_grid(macro_raw, engine=engine)
     grid.to_csv(TABLES / "stress_scenarios.csv", index=False)
     system = A.system_series(panel)
-    bt_rows = {}
+    bt_rows, lag_rows = {}, {}
     for p in engine.fits:
         bt = S.conditional_backtest(system[p], macro_raw, start=STRESS_BACKTEST_START)
         mae_m, mae_n = float(bt["err_model"].abs().mean()), float(bt["err_naive"].abs().mean())
-        bt_rows[p] = {"n": int(len(bt)), "mae_model_pp": mae_m, "mae_no_change_pp": mae_n, "rmae": mae_m / mae_n}
+        bt_rows[p] = {"n": int(len(bt)), "mae_model_pp": mae_m, "mae_no_change_pp": mae_n, "rmae": mae_m / mae_n,
+                      "rezagos_elegidos": {int(k): int(v) for k, v in bt["lag"].value_counts().items()}}
+        lag_rows[p] = S.lag_sensitivity(system[p], macro_raw, start=STRESS_BACKTEST_START)
     bt_table = pd.DataFrame(bt_rows).T
-    bt_table.to_csv(TABLES / "stress_backtest.csv")
+    bt_table.drop(columns="rezagos_elegidos").to_csv(TABLES / "stress_backtest.csv")
+    lag_table = pd.DataFrame(lag_rows).T
+    lag_table.to_csv(TABLES / "stress_lag_sensitivity.csv")
+
+    consumer_lag = engine.fits["consumo"].lag
+    banks = B.eligible_banks(panel, "consumo")
+    bank_table, heterogeneity = S.bank_sensitivity(B.wide_series(panel, banks, "consumo"), macro_raw, consumer_lag)
+    bank_table.to_csv(TABLES / "stress_bank_tpm_consumo.csv")
+    plots.fig_bank_tpm(bank_table, heterogeneity, FIGS / "12_estres_bancos_tpm.png")
     plots.fig_stress(grid, FIGS / "10_estres_escenarios.png")
-    plots.fig_stress_backtest(bt_table, FIGS / "11_estres_validacion.png")
+    plots.fig_stress_backtest(bt_table, lag_table, FIGS / "11_estres_validacion.png")
     keep = ["scenario_name", "portfolio", "tpm_shock_bp", "unemployment_delta_pp", "imacec_growth", "current_mora_pct",
             "mean_mora_pct", "p05_mora_pct", "p95_mora_pct", "p99_mora_pct", "mean_vs_base_pp", "mean_extra_loss_mm",
-            "var99_extra_loss_mm", "extra_loss_vs_base_mm", "out_of_sample_range"]
+            "var99_extra_loss_mm", "extra_loss_vs_base_mm", "out_of_sample_range", "factors_dropped"]
     return {
         "datos_hasta": engine.as_of,
-        "rezago_meses": S.LAG,
+        "rezago_meses": {p: f.lag for p, f in engine.fits.items()},
         "excluido_de_estimacion": list(S.COVID_RELIEF),
         "ead_mm": engine.ead_mm,
         "lgd_supuesto": {"media": engine.lgd_mean, "desviacion": engine.lgd_sd},
         "satelite": coefs.reset_index().to_dict(orient="records"),
         "escenarios": grid[keep].to_dict(orient="records"),
         "validacion_condicional": bt_rows,
+        "sensibilidad_rezago": lag_rows,
+        "bancos_consumo_tpm": {**heterogeneity, "bancos": bank_table.reset_index().to_dict(orient="records")},
     }
 
 

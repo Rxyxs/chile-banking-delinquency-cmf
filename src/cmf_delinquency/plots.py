@@ -283,18 +283,43 @@ def fig_stress(grid: pd.DataFrame, path: Path) -> Path:
     return _save(fig, path)
 
 
-def fig_stress_backtest(table: pd.DataFrame, path: Path) -> Path:
-    """MAE del modelo condicional fuera de muestra, relativo a 'la mora no cambia' (1 = igual)."""
-    fig, ax = plt.subplots(figsize=(8, 4.2), facecolor=SURFACE)
+def fig_stress_backtest(table: pd.DataFrame, lags: pd.DataFrame, path: Path) -> Path:
+    """MAE fuera de muestra relativo a 'la mora no cambia': barra = rezago elegido en cada origen
+    (sin mirar el futuro); puntos grises = cada rezago fijo, para ver cuanto depende de esa eleccion."""
+    fig, ax = plt.subplots(figsize=(9, 4.4), facecolor=SURFACE)
     _style(ax)
+    fixed = [c for c in lags.columns if c.startswith("rezago_")]
     for i, (key, label, color) in enumerate(STRESS_PORTFOLIOS):
         r = table.loc[key]
-        ax.bar(i, r["rmae"], color=color, width=0.6)
-        ax.text(i, r["rmae"] + 0.03, f"{r['rmae']:.2f}", ha="center", va="bottom", fontsize=9, color=INK)
+        ax.bar(i, r["rmae"], color=color, width=0.6, zorder=2)
+        ax.text(i - 0.36, r["rmae"], f"{r['rmae']:.2f}", ha="right", va="center", fontsize=9, color=INK)
+        ax.scatter([i] * len(fixed), lags.loc[key, fixed], color=INK_2, s=14, zorder=3,
+                   label="Rezago fijo (0, 3, 6, 9, 12 meses)" if i == 0 else None)
     ax.axhline(1.0, color=INK, linewidth=1.2)
-    ax.set_xlim(-0.5, 4.4)
+    ax.set_xlim(-0.8, 4.4)
     ax.text(4.35, 1.02, "Sin cambio = 1", ha="right", va="bottom", fontsize=9, color=INK)
     ax.set_xticks(range(len(STRESS_PORTFOLIOS)), [p[1] for p in STRESS_PORTFOLIOS])
     ax.set_ylabel("MAE relativo (menor es mejor)", color=INK_2, fontsize=9)
     ax.set_title("¿El modelo de estrés acierta si la macro se conoce? (fuera de muestra, 2023–2026)", loc="left", color=INK, fontsize=12, pad=12)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK, loc="upper left", bbox_to_anchor=(0.0, -0.08))
+    return _save(fig, path)
+
+
+def fig_bank_tpm(table: pd.DataFrame, het: dict, path: Path) -> Path:
+    """Sensibilidad de la mora de consumo de cada banco a la TPM, con IC 95% (HAC)."""
+    t = table.sort_values("beta_tpm")
+    fig, ax = plt.subplots(figsize=(9, 0.42 * len(t) + 1.6), facecolor=SURFACE)
+    _style(ax)
+    ax.grid(axis="y", visible=False)
+    ax.grid(axis="x", color=GRID, linewidth=0.8)
+    y = np.arange(len(t))
+    ax.errorbar(t["beta_tpm"], y, xerr=[t["beta_tpm"] - t["lo"], t["hi"] - t["beta_tpm"]], fmt="o", color=SERIES["orange"],
+                ecolor=SERIES["orange"], markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, elinewidth=1.6, capsize=0)
+    ax.axvline(0, color=INK, linewidth=1.0)
+    ax.axvline(het["beta_combinado"], color=INK_2, linewidth=1.0, linestyle="--")
+    ax.text(het["beta_combinado"], -0.75, " combinado", color=INK_2, fontsize=8, va="center")
+    ax.set_ylim(-1.1, len(t) - 0.5)
+    ax.set_yticks(y, t.index)
+    ax.set_xlabel(f"pp de mora de consumo por +100 pb de TPM (rezago {het['rezago']} meses)", color=INK_2, fontsize=9)
+    ax.set_title("¿Qué bancos son más sensibles a la tasa? (IC 95%)", loc="left", color=INK, fontsize=12, pad=12)
     return _save(fig, path)

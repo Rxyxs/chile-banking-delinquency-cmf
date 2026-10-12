@@ -162,45 +162,57 @@ Banco por banco a 6 meses, dos intervalos del modelo agrupado excluyen el 1: Ban
 
 Límites: solo la mora total, 10 bancos, sin corrección por comparaciones múltiples, y los errores son pequeños en términos absolutos (0,09 a 0,33 pp), así que una ventaja de 2 a 4% son unas pocas centésimas de punto porcentual.
 
-### 7. Prueba de tensión: solo la mora de consumo tiene un vínculo macro confiable
+### 7. Prueba de tensión: las tasas mueven la mora de consumo; los datos no dicen qué haría una recesión
 
 El hallazgo 5 preguntaba si la macro ayuda a *pronosticar*. Una prueba de tensión hace otra pregunta, condicional: *si* las tasas, el desempleo y la actividad se movieran así, ¿dónde quedaría la mora? Estimo una regresión satélite por cartera sobre la serie del sistema y luego la simulo.
 
 ```
-cambio a 12 meses de la mora_t = a + b1·Δ12 TPM_{t-6} + b2·Δ12 desempleo_{t-6} + b3·IMACEC anual_{t-6} + e_t
+cambio a 12 meses de la mora_t = a + b1·Δ12 TPM_{t-L} + b2·Δ12 desempleo_{t-L} + b3·IMACEC anual_{t-L} + e_t
 ```
 
-- **La ventana de alivio COVID (2020-03 a 2021-12) se excluye de la estimación.** Si se incluye, el desempleo sale con el signo *equivocado* (−0,18 pp de mora de consumo por cada pp de desempleo, t = −5,5), porque la mora bajó mientras el desempleo subía con reprogramaciones, retiros de AFP y transferencias. Es un artefacto de política, y un escenario de estrés sin esos programas no debería heredarlo.
-- **Errores Newey-West (12 rezagos).** Los cambios a 12 meses se solapan, así que los errores de MCO serían demasiado chicos.
-- **El Monte Carlo tiene dos fuentes de incertidumbre:** los coeficientes (sorteados de la covarianza HAC) y los residuos (remuestreados de la historia). Son 10.000 sorteos con semilla fija.
-- **La exposición es real; la severidad es un supuesto.** La EAD son las colocaciones implícitas del sistema en 2026-08 (250 billones de CLP). La LGD es una Beta con media 45% (el valor supervisor de Basilea para deuda senior no garantizada) y desviación de 10 pp.
+Hay cuatro decisiones de modelado, y cada una la obliga algo que aparece en los datos:
 
-| Cartera | n | R² | Δ12 TPM (por pp) | Δ12 desempleo (por pp) | IMACEC anual (por %) |
+- **La ventana de alivio COVID (2020-03 a 2021-12) se excluye de la estimación.** Si se incluye, el desempleo sale con el signo *equivocado* (−0,18 pp de mora de consumo por cada pp de desempleo, t = −5,5): la mora bajó mientras el desempleo subía con reprogramaciones, retiros de AFP y transferencias. Un escenario de estrés sin esos programas no debería heredar eso.
+- **El rezago L se elige por cartera** entre 0, 3, 6, 9 y 12 meses, según el R² ajustado sobre una muestra común. Mi primera versión fijaba L = 6 después de mirar los datos, y eso inflaba el puntaje fuera de muestra de consumo de 0,66 a 0,56 (ver abajo). Ahora el rezago se vuelve a elegir en cada origen del backtest, solo con el pasado.
+- **Restricciones de signo.** El desempleo y el IMACEC se mueven juntos (correlación −0,77), e incluso fuera del COVID sus coeficientes por separado salen con signos económicamente equivocados. Sin restricción, el modelo dice que una recesión *baja* la mora de consumo. Si un factor sale con signo equivocado, se elimina (coeficiente 0) y se reestima, y el motor informa qué factores eliminó.
+- **Errores Newey-West (12 rezagos)**, porque los cambios a 12 meses se solapan. El Monte Carlo sortea los coeficientes de esa covarianza y remuestrea los residuos históricos (10.000 sorteos, semilla fija). La EAD son las colocaciones implícitas reales de 2026-08 (250 billones de CLP). La LGD es un supuesto: una Beta con media 45% (el valor supervisor de Basilea para deuda senior no garantizada).
+
+| Cartera | Rezago | R² | Δ12 TPM (por pp) | IMACEC anual (por %) | Eliminado por signo |
 |---|---|---|---|---|---|
-| Total | 94 | 0,46 | +0,026 (t 1,9) | +0,016 (t 0,4) | −0,028 (t −2,8) |
-| Comercial | 94 | 0,44 | +0,033 (t 2,4) | +0,037 (t 1,0) | −0,024 (t −2,4) |
-| **Consumo** | 94 | **0,81** | **+0,087 (t 11,3)** | −0,063 (t −1,4) | −0,036 (t −3,1) |
-| Vivienda | 94 | 0,17 | +0,002 (t 0,1) | +0,006 (t 0,1) | −0,030 (t −1,6) |
+| Total | 9 | 0,57 | +0,039 (t 4,2) | −0,022 (t −4,6) | desempleo |
+| Comercial | 12 | 0,67 | +0,059 (t 10,3) | −0,009 (t −1,8) | desempleo |
+| **Consumo** | 9 | **0,80** | **+0,095 (t 9,4)** | — | desempleo, IMACEC |
+| Vivienda | 3 | 0,18 | — | −0,021 (t −1,3) | TPM (el desempleo queda: +0,075, t 1,4) |
 
-**¿Funciona fuera de muestra?** Para cada mes entre 2023-01 y 2026-08 reestimo con datos hasta 12 meses antes, para que ningún cambio de entrenamiento se solape con el que se predice. Luego le entrego la macro que efectivamente ocurrió y comparo con "la mora no cambia". El MAE relativo a ese benchmark (bajo 1 es mejor):
+**¿Funciona fuera de muestra?** Para cada mes entre 2023-01 y 2026-08 reestimo con datos hasta 12 meses antes, incluidas la elección del rezago y las restricciones de signo. Luego le entrego la macro que efectivamente ocurrió y comparo con "la mora no cambia". Las barras muestran el puntaje honesto, con el rezago elegido con el pasado. Los puntos grises muestran lo que habría dado cada rezago fijo; elegir el mejor punto después de verlo es la fuga que yo tenía.
 
 ![Validación fuera de muestra del modelo de estrés](reports/figures/11_estres_validacion.png)
 
-Solo el modelo de **consumo** se justifica: 0,56 (0,20 pp contra 0,36 pp, 44 meses). Total, comercial y vivienda quedan *peor* que "sin cambio" (1,18, 1,32 y 1,26). Por eso leo los escenarios de consumo como resultado de un modelo, y los demás como ilustración.
+- **Consumo: 0,73** (0,26 pp contra 0,36 pp, 44 meses). Le gana a "sin cambio", aunque por menos de lo que sugería la versión con rezago fijo.
+- **Comercial: 0,85.** También le gana, una vez eliminado el término de desempleo con signo equivocado.
+- **Total: 1,12; vivienda: 1,53.** Ninguna le gana a "sin cambio", así que leo esos escenarios como ilustración.
+- **El rezago pesa tanto como el modelo.** Con un rezago fijo de 12 meses, total y comercial darían 0,74 y 0,57, y consumo daría 0,53 con 6 meses. Ninguno de esos rezagos se puede elegir honestamente por adelantado.
 
-Escenarios, todos como shocks a 12 meses. Los dos históricos repiten los cambios efectivamente observados en los 12 meses hasta esa fecha:
+**¿El efecto de la tasa es estable?** Estimando la mora de consumo solo con datos pre-COVID (2017–2020, cuando la TPM casi no se movió: entre −1 y +0,5 pp) se obtiene entre +0,07 y +0,14 pp por pp, contra +0,08 a +0,09 desde 2022. El signo y el tamaño se mantienen, pero la precisión viene casi entera del ciclo 2022–23.
+
+**¿Qué bancos están más expuestos?** El mismo modelo, banco por banco, sobre los 10 bancos con historia y tamaño suficientes:
+
+![Sensibilidad de la mora de consumo a la TPM por banco](reports/figures/12_estres_bancos_tpm.png)
+
+BancoEstado (+0,15 pp por cada 100 pb), BCI (+0,12), Scotiabank (+0,10) e Itaú (+0,09) reaccionan entre tres y diez veces más que Bice (+0,02), Consorcio (+0,01) y Security (+0,03). La hipótesis de que todos los bancos comparten un mismo coeficiente se rechaza con holgura (Q de Cochran = 94 con 9 gl), aunque la Q exagera la evidencia porque los bancos comparten el mismo ciclo. Una lectura plausible es que los bancos que prestan a clientes de mayores ingresos están menos expuestos a la tasa, pero no tuve datos de clientes para probarlo.
+
+**Escenarios**, todos como shocks a 12 meses. Los dos históricos repiten los cambios efectivamente observados en los 12 meses hasta esa fecha:
 
 | Escenario | TPM | Desempleo | IMACEC | Mora consumo | Mora total | Total vs base | Pérdida adicional vs base |
 |---|---|---|---|---|---|---|---|
-| Base: sin cambios | 0 pb | 0 pp | +2,0% | 2,35% → 2,48% | 2,44% → 2,60% | — | — |
-| Histórico: ciclo de alzas 2022 | +725 pb | +0,7 pp | −1,0% | → **3,18%** [2,93; 3,51] | → 2,88% | +0,28 pp | 319 mil MM CLP |
-| Histórico: desaceleración 2016 | 0 pb | +0,3 pp | +1,2% | → 2,49% | → 2,63% | +0,03 pp | 30 mil MM CLP |
-| Hipotético: alzas con recesión | +300 pb | +2,0 pp | −3,0% | → 2,79% | → 2,85% | +0,25 pp | 280 mil MM CLP |
+| Base: sin cambios | 0 pb | 0 pp | +2,0% | 2,35% → 2,45% | 2,44% → 2,59% | — | — |
+| Histórico: ciclo de alzas 2022 | +725 pb | +0,7 pp | −1,0% | → **3,14%** [2,85; 3,47] | → 2,94% | +0,35 pp | 390 mil MM CLP |
+| Histórico: desaceleración 2016 | 0 pb | +0,3 pp | +1,2% | → 2,45% | → 2,61% | +0,02 pp | 20 mil MM CLP |
+| Hipotético: alzas con recesión | +300 pb | +2,0 pp | −3,0% | → 2,74% | → 2,82% | +0,23 pp | 256 mil MM CLP |
 
-Los corchetes son los percentiles 5 y 95. El escenario base ya sube 0,16 pp porque el intercepto recoge la deriva alcista promedio de la muestra de estimación; por eso los efectos se reportan contra el base.
+Los corchetes son los percentiles 5 y 95. El escenario base sube cerca de 0,15 pp porque el intercepto recoge la deriva alcista promedio de la muestra; por eso los efectos se reportan contra el base.
 
-- **Lo que mueve la mora de consumo es la TPM.** Repetir las alzas de 2022 (+725 pb) agrega 0,70 pp sobre el base. Los mismos shocks casi no mueven la vivienda (+0,11 pp).
-- **Las recesiones están fuera de los datos.** Excluida la ventana COVID, la muestra nunca vio un IMACEC bajo −2,5% ni un desempleo que subiera más de 1,1 pp en un año. El escenario hipotético es extrapolación, y el motor lo marca (`out_of_sample_range`).
+- **La recesión hipotética casi no agrega nada más allá de su alza de tasas.** En consumo se eliminaron los términos de desempleo y actividad, así que el shock de +2 pp de desempleo no tiene efecto. Los datos no contienen una recesión fuera del COVID: la muestra de estimación nunca vio un IMACEC bajo −2,5% ni un desempleo que subiera más de 1,2 pp en un año. Es un límite de los datos, no un hallazgo de que las recesiones sean inocuas. El motor marca los shocks fuera de rango (`out_of_sample_range`) y los factores eliminados (`factors_dropped`).
 - **Mora × LGD × EAD es una pérdida sobre el stock moroso, no una pérdida esperada a 12 meses.** La mora 90+ es un stock, no una tasa de default. Las cifras en CLP sirven solo como orden de magnitud y no son una estimación de provisiones.
 
 ![Escenarios de estrés por cartera](reports/figures/10_estres_escenarios.png)
@@ -226,7 +238,7 @@ curl -X POST localhost:8000/simulate/stress-test -H "content-type: application/j
 - **Backtest pequeño.** 56–68 orígenes solapados sobre una sola serie con cambios de régimen. Los intervalos son anchos y la ventana de evaluación parte en 2021, así que mide sobre todo el rebote posterior al COVID.
 - **Las historias de las entidades no son del todo comparables.** Los nombres cambian en la fuente (Itaú Corpbanca → Banco Itaú Chile, BBVA Chile → Scotiabank Azul), la serie BBVA/Scotiabank Azul termina en 2018-08 y Banco Security deja de reportarse después de 2025-10. Manejo los cambios de nombre que pude identificar en los archivos; no investigué las operaciones societarias detrás de ellos.
 - **Los datos macro no son versiones en tiempo real.** Vienen de un agregador de terceros y son los valores disponibles en la fecha de descarga; revisiones posteriores no se verían. El rezago de publicación de un mes que aplico al desempleo y al IMACEC es un supuesto que no verifiqué contra los calendarios oficiales, y solo probé modelos lineales.
-- **El modelo de estrés es una sola regresión a nivel de sistema con 94 observaciones solapadas** y sin recesiones fuera del COVID. Se ajusta sobre el agregado del sistema, así que no dice nada de bancos individuales, y la validación fuera de muestra cubre un solo ciclo de alzas y bajas.
+- **El modelo de estrés descansa en 94 observaciones mensuales solapadas** y en un solo ciclo de alzas y bajas, sin recesiones fuera del COVID. La elección del rezago y de los signos depende a su vez de los datos. Las sensibilidades por banco salen de la misma muestra corta y usan la mora de consumo total, no datos por crédito.
 - **El estudio por banco cubre 10 bancos** elegidos por largo de datos y tamaño, no las 24 entidades, y compara muchos intervalos sin corregirlo. Un banco que parece predecible a un horizonte es muy probablemente ruido.
 
 ## Cómo correrlo
@@ -241,7 +253,7 @@ python -m cmf_delinquency.pipeline                   # descarga primero los 128 
 python -m cmf_delinquency.stress_test               # escenarios de estrés en la terminal
 python -m cmf_delinquency.warehouse                  # almacén DuckDB en warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # API REST (o: docker compose up --build)
-pytest                                               # 118 tests, sin red
+pytest                                               # 124 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -256,14 +268,14 @@ src/cmf_delinquency/
   macro.py      indicadores macro abiertos (mindicador.cl) y rezagos de publicación
   banks.py      pronóstico por banco: modelos agrupados entre bancos, selección de bancos
   forecast.py   backtest con origen móvil, intervalos por bootstrap de bloques
-  stress_test.py  modelo satélite (HAC), escenarios de estrés por Monte Carlo, validación condicional fuera de muestra
+  stress_test.py  modelo satélite (elección de rezago, restricciones de signo, HAC), escenarios por Monte Carlo, validación anidada fuera de muestra, sensibilidad por banco
   warehouse.py  almacén DuckDB construido con los modelos SQL de sql/, con chequeos de calidad
   api.py        servicio FastAPI del motor de estrés
   plots.py      figuras
   site.py       genera la página de GitHub Pages (docs/index.html) desde el panel y results.json
   pipeline.py   de punta a punta
 docs/           el sitio de GitHub Pages (generado; no se edita a mano)
-tests/          118 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
+tests/          124 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
 Dockerfile, docker-compose.yml   contenedor de la API (y un job batch para el almacén)
 ```
 

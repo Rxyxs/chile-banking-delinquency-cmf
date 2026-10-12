@@ -69,6 +69,7 @@ class StressResponse(BaseModel):
     p99_mora_pct: float
     prob_increase: float
     out_of_sample_range: list[str]
+    factors_dropped: list[str]
     ead_mm: float | None = None
     current_loss_mm: float | None = None
     mean_loss_mm: float | None = None
@@ -94,7 +95,7 @@ def model(request: Request) -> dict:
     engine = _engine(request)
     return {
         "as_of": engine.as_of,
-        "lag_months": S.LAG,
+        "lag_months": {p: f.lag for p, f in engine.fits.items()},
         "excluded_from_fit": list(S.COVID_RELIEF),
         "ead_mm": engine.ead_mm,
         "fits": engine.summary().reset_index().to_dict(orient="records"),
