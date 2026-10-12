@@ -212,6 +212,16 @@ BancoEstado (+0.15 pp per 100 bp), BCI (+0.12), Scotiabank (+0.10) and Itaú (+0
 
 BancoEstado (7.5% consumer) and BCI (8.0%) are the most sensitive banks with *less* consumer lending than Santander (14.5%) or Banco de Chile (13.9%), so the loan mix is not the explanation. A client-income channel is plausible but untested: the CMF does not publish borrower income by bank.
 
+**Can the stress test be taken down to each bank?** Not with these data. Out of sample (2023–2026, same protocol), relative to "no change", pooled over the 10 banks:
+
+| How each bank's 12-month change is projected | Relative MAE |
+|---|---|
+| Satellite model estimated on the bank itself | 1.63 |
+| Two stages: macro → system (validated model) → bank via its own beta to the system | 1.22 |
+| Same second stage, given the *actual* system change (not a forecast) | 0.98 |
+
+Even knowing the system's path perfectly, a bank's beta to the system barely beats no change: most of a bank's movement is its own, not the common cycle. The exception is the large consumer lenders, which do follow the system (BCI 0.53, Scotiabank 0.65, Itaú 0.68, BancoEstado 0.75 with the actual system change). Niche banks (Consorcio 1.95, Internacional 2.29) do not. So the engine and the API report system-level stress only, and I do not publish loss figures by bank.
+
 **Scenarios**, all as 12-month shocks. The two historical ones replay the changes actually observed in the 12 months to that date:
 
 | Scenario | TPM | Unemployment | IMACEC | Consumer arrears | Total arrears | Total vs base | Extra loss vs base |
@@ -289,7 +299,7 @@ python -m cmf_delinquency.pipeline                   # downloads the 128 files a
 python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
 python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
-pytest                                               # 137 tests, no network
+pytest                                               # 139 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -312,7 +322,7 @@ src/cmf_delinquency/
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          137 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+tests/          139 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
 Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 

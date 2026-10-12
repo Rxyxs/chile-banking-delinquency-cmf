@@ -391,6 +391,63 @@ def bank_sensitivity(wide: pd.DataFrame, macro: pd.DataFrame, lag: int, min_obs:
     return table, {"beta_combinado": pooled, "q_cochran": q, "gl": int(len(table) - 1), "rezago": lag}
 
 
+BANK_MODES = ("macro_propio", "dos_etapas", "dos_etapas_oraculo")
+
+
+def _outside_covid(index: pd.DatetimeIndex) -> np.ndarray:
+    start, end = (pd.Timestamp(d) for d in COVID_RELIEF)
+    return np.asarray((index < start) | (index > end))
+
+
+def bank_conditional_backtest(wide: pd.DataFrame, system: pd.Series, macro: pd.DataFrame,
+                              start: str = "2023-01-01") -> pd.DataFrame:
+    """Validacion fuera de muestra de la prueba de tension a nivel de banco.
+
+    Para cada banco y mes ``t`` (estimando con datos hasta ``t-12``, sin la ventana COVID) compara tres
+    formas de proyectar el cambio a 12 meses de su mora con "no cambia":
+
+    * ``macro_propio``: el modelo satelite estimado sobre el banco (rezago y signos elegidos con el pasado).
+    * ``dos_etapas``: la macro proyecta el sistema (modelo satelite del sistema) y el banco responde al
+      sistema con su propio beta: d12 banco = a + g * d12 sistema. Un solo parametro por banco.
+    * ``dos_etapas_oraculo``: la segunda etapa con el cambio *real* del sistema. No es un pronostico; mide
+      cuanto del banco explica el ciclo comun aun conociendolo perfecto.
+    """
+    sys_bt = conditional_backtest(system, macro, start)
+    d_sys = system.diff(WINDOW)
+    rows = []
+    for bank in wide.columns:
+        series = wide[bank].dropna()
+        d_bank = series.diff(WINDOW)
+        own = conditional_backtest(series, macro, start) if len(series) > 60 else pd.DataFrame()
+        for t, sys_row in sys_bt.iterrows():
+            actual = d_bank.get(t)
+            if actual is None or pd.isna(actual):
+                continue
+            pair = pd.DataFrame({"y": d_bank, "x": d_sys}).loc[: t - pd.DateOffset(months=WINDOW)].dropna()
+            pair = pair[_outside_covid(pair.index)]
+            if len(pair) < 24:
+                continue
+            a, g = np.linalg.lstsq(np.column_stack([np.ones(len(pair)), pair["x"]]), pair["y"].to_numpy(), rcond=None)[0]
+            preds = {"dos_etapas": a + g * sys_row["pred"], "dos_etapas_oraculo": a + g * d_sys[t]}
+            if t in own.index:
+                preds["macro_propio"] = own.at[t, "pred"]
+            for mode, pred in preds.items():
+                rows.append({"date": t, "bank": bank, "mode": mode, "pred": float(pred), "actual": float(actual),
+                             "abs_err": abs(actual - pred), "abs_naive": abs(actual)})
+    return pd.DataFrame(rows)
+
+
+def bank_backtest_summary(errors: pd.DataFrame) -> pd.DataFrame:
+    """MAE relativo a "no cambia" por modo, agregado y banco por banco."""
+    pooled = errors.groupby("mode")[["abs_err", "abs_naive"]].mean()
+    pooled["rmae"] = pooled["abs_err"] / pooled["abs_naive"]
+    pooled["bank"] = "Todos"
+    per_bank = errors.groupby(["mode", "bank"])[["abs_err", "abs_naive"]].mean()
+    per_bank["rmae"] = per_bank["abs_err"] / per_bank["abs_naive"]
+    out = pd.concat([pooled.reset_index(), per_bank.reset_index()], ignore_index=True)
+    return out[["mode", "bank", "abs_err", "abs_naive", "rmae"]]
+
+
 def main() -> None:
     engine = CreditRiskStressEngine.from_csv()
     macro = pd.read_csv(MACRO_CSV, parse_dates=["month"]).set_index("month")
