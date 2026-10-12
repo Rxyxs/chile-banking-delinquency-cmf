@@ -114,9 +114,17 @@ def _ols(train: pd.DataFrame, test: pd.DataFrame, target: str) -> np.ndarray:
     return np.column_stack([np.ones(len(test)), test[list(FEATURES)].to_numpy()]) @ beta
 
 
-def rolling_origin(data: pd.DataFrame, horizons: tuple[int, ...] = HORIZONS, first_origin: str = FIRST_ORIGIN) -> pd.DataFrame:
-    """Errores por banco, origen, horizonte y modelo (naive, ols_agrupado, lightgbm)."""
+COVID_RELIEF = ("2020-03-01", "2021-12-01")
+
+
+def rolling_origin(data: pd.DataFrame, horizons: tuple[int, ...] = HORIZONS, first_origin: str = FIRST_ORIGIN,
+                   exclude_covid_train: bool = False) -> pd.DataFrame:
+    """Errores por banco, origen, horizonte y modelo (naive, ols_agrupado, lightgbm).
+
+    ``exclude_covid_train`` saca del entrenamiento los pares (t, t+h) que tocan la ventana de alivio COVID.
+    """
     rows = []
+    start, end = (pd.Timestamp(d) for d in COVID_RELIEF)
     origins = sorted(data.loc[data["date"] >= pd.Timestamp(first_origin), "date"].unique())
     for h in horizons:
         target = f"y_{h}"
@@ -124,6 +132,9 @@ def rolling_origin(data: pd.DataFrame, horizons: tuple[int, ...] = HORIZONS, fir
             origin = pd.Timestamp(origin)
             known_until = origin - pd.DateOffset(months=h)  # desenlace t+h <= origen
             train = data[(data["date"] <= known_until)].dropna(subset=[target])
+            if exclude_covid_train:
+                touches = (train["date"] + pd.DateOffset(months=h) >= start) & (train["date"] <= end)
+                train = train[~touches]
             test = data[(data["date"] == origin)].dropna(subset=[target])
             if len(train) < MIN_TRAIN_ROWS or test.empty:
                 continue

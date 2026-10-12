@@ -192,6 +192,7 @@ def stress_study(panel: pd.DataFrame, macro_raw: pd.DataFrame, loan_mix: pd.Data
         "escenarios": grid[keep].to_dict(orient="records"),
         "validacion_condicional": bt_rows,
         "sensibilidad_rezago": lag_rows,
+        "robustez_consumo": S.robustness(system["consumo"], macro_raw, engine.fits["consumo"].lag),
         "validacion_por_banco": bank_bt.to_dict(orient="records"),
         "bancos_consumo_tpm": {**heterogeneity, "bancos": bank_table.join(profile).reset_index().to_dict(orient="records"),
                                "explicacion_spearman": explained.reset_index().to_dict(orient="records"),
@@ -208,6 +209,8 @@ def ml_study(panel: pd.DataFrame, macro_raw: pd.DataFrame) -> dict:
     for portfolio in ("consumo", "total"):
         data = ML.build_panel(panel, macro_raw, system[portfolio], portfolio)
         table = ML.backtest_table(ML.rolling_origin(data))
+        no_covid = ML.backtest_table(ML.rolling_origin(data, exclude_covid_train=True))
+        out.setdefault("sin_covid_en_entrenamiento", []).extend(no_covid.assign(cartera=portfolio).to_dict(orient="records"))
         table.insert(0, "cartera", portfolio)
         rows.append(table)
         if portfolio == "consumo":

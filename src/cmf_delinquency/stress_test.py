@@ -448,6 +448,27 @@ def bank_backtest_summary(errors: pd.DataFrame) -> pd.DataFrame:
     return out[["mode", "bank", "abs_err", "abs_naive", "rmae"]]
 
 
+def robustness(mora: pd.Series, macro: pd.DataFrame, lag: int) -> dict:
+    """Chequeos que respaldan las decisiones del modelo, todos sin restriccion de signo y con errores HAC.
+
+    * ``con_covid``: el modelo estimado incluyendo la ventana de alivio COVID (el signo del desempleo).
+    * ``pre_covid`` / ``post_2021``: el mismo modelo en cada submuestra (estabilidad del coeficiente TPM).
+    """
+    def _fit(data: pd.DataFrame) -> dict:
+        res = sm.OLS(data["y"], sm.add_constant(data[list(FACTORS)])).fit(cov_type="HAC", cov_kwds={"maxlags": HAC_LAGS})
+        return {"n": int(res.nobs), **{f: float(res.params[f]) for f in FACTORS}, **{f"t_{f}": float(res.tvalues[f]) for f in FACTORS}}
+
+    full = design(mora, macro, lag, exclude_covid=False)
+    clean = design(mora, macro, lag, exclude_covid=True)
+    pre, post = clean[clean.index < pd.Timestamp(COVID_RELIEF[0])], clean[clean.index > pd.Timestamp(COVID_RELIEF[1])]
+    return {
+        "rezago": lag,
+        "con_covid": _fit(full),
+        "pre_covid": {**_fit(pre), "rango_d_tpm_pp": [float(pre["d_tpm_pp"].min()), float(pre["d_tpm_pp"].max())]},
+        "post_2021": {**_fit(post), "rango_d_tpm_pp": [float(post["d_tpm_pp"].min()), float(post["d_tpm_pp"].max())]},
+    }
+
+
 def main() -> None:
     engine = CreditRiskStressEngine.from_csv()
     macro = pd.read_csv(MACRO_CSV, parse_dates=["month"]).set_index("month")

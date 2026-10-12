@@ -175,8 +175,8 @@ cambio a 12 meses de la mora_t = a + b1·Δ12 TPM_{t-L} + b2·Δ12 desempleo_{t-
 
 Hay cuatro decisiones de modelado, y cada una la obliga algo que aparece en los datos:
 
-- **La ventana de alivio COVID (2020-03 a 2021-12) se excluye de la estimación.** Si se incluye, el desempleo sale con el signo *equivocado* (−0,18 pp de mora de consumo por cada pp de desempleo, t = −5,5): la mora bajó mientras el desempleo subía con reprogramaciones, retiros de AFP y transferencias. Un escenario de estrés sin esos programas no debería heredar eso.
-- **El rezago L se elige por cartera** entre 0, 3, 6, 9 y 12 meses, según el R² ajustado sobre una muestra común. Mi primera versión fijaba L = 6 después de mirar los datos, y eso inflaba el puntaje fuera de muestra de consumo de 0,66 a 0,56 (ver abajo). Ahora el rezago se vuelve a elegir en cada origen del backtest, solo con el pasado.
+- **La ventana de alivio COVID (2020-03 a 2021-12) se excluye de la estimación.** Si se incluye, el desempleo sale con el signo *equivocado* (−0,15 pp de mora de consumo por cada pp de desempleo, t = −12,3): la mora bajó mientras el desempleo subía con reprogramaciones, retiros de AFP y transferencias. Un escenario de estrés sin esos programas no debería heredar eso.
+- **El rezago L se elige por cartera** entre 0, 3, 6, 9 y 12 meses, según el R² ajustado sobre una muestra común. Mi primera versión fijaba L = 6 después de mirar los datos. Fijar el rezago a posteriori hace ver al modelo mejor de lo que es: en consumo, un rezago fijo de 6 meses da 0,53 contra el 0,73 honesto (ver abajo). Ahora el rezago se vuelve a elegir en cada origen del backtest, solo con el pasado.
 - **Restricciones de signo.** El desempleo y el IMACEC se mueven juntos (correlación −0,77), e incluso fuera del COVID sus coeficientes por separado salen con signos económicamente equivocados. Sin restricción, el modelo dice que una recesión *baja* la mora de consumo. Si un factor sale con signo equivocado, se elimina (coeficiente 0) y se reestima, y el motor informa qué factores eliminó.
 - **Errores Newey-West (12 rezagos)**, porque los cambios a 12 meses se solapan. El Monte Carlo sortea los coeficientes de esa covarianza y remuestrea los residuos históricos (10.000 sorteos, semilla fija). La EAD son las colocaciones implícitas reales de 2026-08 (250 billones de CLP). La LGD es un supuesto: una Beta con media 45% (el valor supervisor de Basilea para deuda senior no garantizada).
 
@@ -196,7 +196,7 @@ Hay cuatro decisiones de modelado, y cada una la obliga algo que aparece en los 
 - **Total: 1,12; vivienda: 1,53.** Ninguna le gana a "sin cambio", así que leo esos escenarios como ilustración.
 - **El rezago pesa tanto como el modelo.** Con un rezago fijo de 12 meses, total y comercial darían 0,74 y 0,57, y consumo daría 0,53 con 6 meses. Ninguno de esos rezagos se puede elegir honestamente por adelantado.
 
-**¿El efecto de la tasa es estable?** Estimando la mora de consumo solo con datos pre-COVID (2017–2020, cuando la TPM casi no se movió: entre −1 y +0,5 pp) se obtiene entre +0,07 y +0,14 pp por pp, contra +0,08 a +0,09 desde 2022. El signo y el tamaño se mantienen, pero la precisión viene casi entera del ciclo 2022–23.
+**¿El efecto de la tasa es estable?** Estimando la mora de consumo solo con datos pre-COVID (2017–2020, cuando la TPM casi no se movió: entre −1 y +0,5 pp) se obtiene +0,14 pp por pp (t = 3,0), contra +0,08 (t = 9,4) desde 2022. El signo y el tamaño se mantienen, pero la precisión viene casi entera del ciclo 2022–23.
 
 **¿Qué bancos están más expuestos?** El mismo modelo, banco por banco, sobre los 10 bancos con historia y tamaño suficientes:
 
@@ -299,7 +299,7 @@ python -m cmf_delinquency.pipeline                   # descarga primero los 128 
 python -m cmf_delinquency.stress_test               # escenarios de estrés en la terminal
 python -m cmf_delinquency.warehouse                  # almacén DuckDB en warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # API REST (o: docker compose up --build)
-pytest                                               # 139 tests, sin red
+pytest                                               # 170 tests, sin red
 ```
 
 Salidas: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -322,7 +322,7 @@ src/cmf_delinquency/
   site.py       genera la página de GitHub Pages (docs/index.html) desde el panel y results.json
   pipeline.py   de punta a punta
 docs/           el sitio de GitHub Pages (generado; no se edita a mano)
-tests/          139 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
+tests/          170 tests: archivos sintéticos en ambos formatos + chequeos de integridad sobre el panel real + chequeos macro, por banco, de la página, de no mirar hacia adelante, de estrés, del almacén y de la API
 Dockerfile, docker-compose.yml   contenedor de la API (y un job batch para el almacén)
 ```
 
