@@ -299,7 +299,7 @@ python -m cmf_delinquency.pipeline                   # downloads the 128 files a
 python -m cmf_delinquency.stress_test               # stress scenarios in the terminal
 python -m cmf_delinquency.warehouse                  # DuckDB warehouse in warehouse/
 uvicorn cmf_delinquency.api:app --port 8000          # REST API (or: docker compose up --build)
-pytest                                               # 0 tests, no network
+pytest                                               # 170 tests, no network
 ```
 
 Outputs: `reports/results.json`, `reports/tables/*.csv`, `reports/figures/*.png`.
@@ -322,7 +322,7 @@ src/cmf_delinquency/
   site.py       builds the GitHub Pages page (docs/index.html) from the panel and results.json
   pipeline.py   end to end
 docs/           the GitHub Pages site (generated; do not edit by hand)
-tests/          0 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
+tests/          170 tests: synthetic files in both layouts + integrity checks on the real panel + macro, per-bank, page, no-look-ahead, stress, warehouse and API checks
 Dockerfile, docker-compose.yml   container for the API (and a batch job for the warehouse)
 ```
 
