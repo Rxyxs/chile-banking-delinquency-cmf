@@ -1,6 +1,6 @@
 # Morosidad bancaria en Chile, 2016–2026 — un panel mensual con datos de la CMF
 
-Español · [English version](README.md)
+[[English](README.md) ] | [Español ]
 
 ![tests](https://github.com/Rxyxs/chile-banking-delinquency-cmf/actions/workflows/ci.yml/badge.svg)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)

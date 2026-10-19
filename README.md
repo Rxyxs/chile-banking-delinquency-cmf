@@ -1,6 +1,6 @@
 # Chilean bank delinquency, 2016–2026 — a monthly panel from the CMF
 
-[Versión en español](README.es.md) · English
+[English ] | [[Español](README.es.md) ]
 
 ![tests](https://github.com/Rxyxs/chile-banking-delinquency-cmf/actions/workflows/ci.yml/badge.svg)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
